@@ -1,0 +1,8 @@
+{
+  "name": "ZanoZa Activity \u0026 Financial Hub- 14-11-2026",
+  "description": "منظومة إدارة الأنشطة السياحية والبحرية والمحافظ المالية لمنصة ZanoZa (Siyahia)",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
