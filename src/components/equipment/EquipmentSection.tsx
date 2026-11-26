@@ -8,8 +8,15 @@ import type {
   EquipmentTypeDefinition
 } from '../../types/equipment';
 import type { PartnerRecord } from '../../types/partner';
+import type { PersonProfile } from '../../types/personProfile';
+import type {
+  AssetCatalogScope,
+  EquipmentUnitKindItem,
+  ManufacturerModelRecord,
+  ManufacturerRecord,
+  SpecGroupRecord
+} from '../../types/masterReference';
 import type { NavigationItemKey } from '../layout/Sidebar';
-import { CentralLibraryManager } from '../activities/CentralLibraryManager';
 import { EquipmentManagement } from './EquipmentManagement';
 
 interface EquipmentSectionProps {
@@ -18,9 +25,13 @@ interface EquipmentSectionProps {
   equipments: EquipmentItem[];
   equipmentTypes: EquipmentTypeDefinition[];
   equipmentProperties: EquipmentPropertyItem[];
+  specGroups?: SpecGroupRecord[];
   activities: Activity[];
   categoryRecords: CategoryRecord[];
   partners: PartnerRecord[];
+  personProfiles?: PersonProfile[];
+  preselectedProfileForAsset?: PersonProfile | null;
+  onConsumePreselectedProfile?: () => void;
   onCreatePartner: (
     payload: Omit<PartnerRecord, 'id' | 'ownerId' | 'createdAt' | 'updatedAt'>
   ) => PartnerRecord;
@@ -29,12 +40,40 @@ interface EquipmentSectionProps {
   onCreateEquipment: (item: EquipmentItem) => void;
   onUpdateEquipment: (updated: EquipmentItem) => void;
   onDeleteEquipment: (equipmentId: string) => void;
+  onSyncEquipmentActivities?: (equipmentId: string, linkedActivityIds: string[]) => void;
   onChangeEquipmentStatus: (equipmentId: string, status: EquipmentStatus) => void;
   onSaveEquipmentTypes: (types: EquipmentTypeDefinition[]) => void;
-  onChangeEquipmentProperties: (nextProps: EquipmentPropertyItem[]) => void;
-  onResetEquipmentPropertiesCatalog: () => Promise<void>;
+  equipmentUnitKinds?: EquipmentUnitKindItem[];
+  manufacturers?: ManufacturerRecord[];
+  manufacturerModels?: ManufacturerModelRecord[];
+  onCreateEquipmentUnitKind?: (input: {
+    name: string;
+    domainScope?: AssetCatalogScope;
+    defaultCategoryId?: string;
+    defaultTypeId?: string;
+    description?: string;
+  }) => EquipmentUnitKindItem;
+  onCreateManufacturer?: (input: {
+    name: string;
+    applicableTo?: AssetCatalogScope;
+    linkedUnitKindIds?: string[];
+  }) => ManufacturerRecord;
+  onCreateManufacturerModel?: (input: {
+    manufacturerId: string;
+    name: string;
+    applicableTo?: AssetCatalogScope;
+    unitKindId?: string;
+  }) => ManufacturerModelRecord;
   onNavigate: (key: NavigationItemKey) => void;
   onOpenActivityInEditor: (act: Activity) => void;
+  externalRestoredDraft?: { item: EquipmentItem; isNew: boolean } | null;
+  onConsumeExternalRestoredDraft?: () => void;
+  onOpenAddActivityFromEquipment?: (
+    draftItem: EquipmentItem,
+    isNew: boolean,
+    returnToNav: NavigationItemKey,
+    presetCategoryPath: string[]
+  ) => void;
 }
 
 interface DraftSession {
@@ -49,27 +88,45 @@ export const EquipmentSection: React.FC<EquipmentSectionProps> = ({
   equipments,
   equipmentTypes,
   equipmentProperties,
+  specGroups = [],
   activities,
   categoryRecords,
   partners,
+  personProfiles = [],
+  preselectedProfileForAsset,
+  onConsumePreselectedProfile,
   onCreatePartner,
   onUpdatePartner,
   onDeletePartner,
   onCreateEquipment,
   onUpdateEquipment,
   onDeleteEquipment,
+  onSyncEquipmentActivities,
   onChangeEquipmentStatus,
   onSaveEquipmentTypes,
-  onChangeEquipmentProperties,
-  onResetEquipmentPropertiesCatalog,
+  equipmentUnitKinds = [],
+  manufacturers = [],
+  manufacturerModels = [],
+  onCreateEquipmentUnitKind,
+  onCreateManufacturer,
+  onCreateManufacturerModel,
   onNavigate,
-  onOpenActivityInEditor
+  onOpenActivityInEditor,
+  externalRestoredDraft = null,
+  onConsumeExternalRestoredDraft,
+  onOpenAddActivityFromEquipment
 }) => {
   const [pausedDraft, setPausedDraft] = useState<DraftSession | null>(null);
   const [restoredDraft, setRestoredDraft] = useState<{
     item: EquipmentItem;
     isNew: boolean;
   } | null>(null);
+
+  const effectiveRestoredDraft = externalRestoredDraft || restoredDraft;
+  const handleConsumeEffectiveRestoredDraft = () => {
+    if (externalRestoredDraft) onConsumeExternalRestoredDraft?.();
+    if (restoredDraft) setRestoredDraft(null);
+  };
 
   useEffect(() => {
     if (pausedDraft && pausedDraft.item.ownerId !== currentUser.id) {
@@ -90,17 +147,13 @@ export const EquipmentSection: React.FC<EquipmentSectionProps> = ({
   const isEquipmentView =
     currentNavKey === 'activity_equipment' ||
     currentNavKey === 'activity_equipment_add' ||
-    currentNavKey === 'activity_equipment_manage' ||
-    currentNavKey === 'activity_equipment_types' ||
-    currentNavKey === 'activity_equipment_partners';
+    currentNavKey === 'activity_equipment_manage';
 
   const resolvedViewMode =
     currentNavKey === 'activity_equipment_add'
       ? 'create'
       : currentNavKey === 'activity_equipment_manage'
       ? 'manage'
-      : currentNavKey === 'activity_equipment_types'
-      ? 'types_builder'
       : currentNavKey === 'activity_equipment_partners'
       ? 'partners'
       : 'registry';
@@ -111,7 +164,7 @@ export const EquipmentSection: React.FC<EquipmentSectionProps> = ({
       isNew,
       returnToNav: currentNavKey
     });
-    onNavigate('activity_equipment_partners');
+    onNavigate('person_profiles');
   };
 
   const handleSelectPartnerForDraft = (partner: PartnerRecord) => {
@@ -175,17 +228,6 @@ export const EquipmentSection: React.FC<EquipmentSectionProps> = ({
 
   return (
     <>
-      {currentNavKey === 'activity_meta_library' && (
-        <CentralLibraryManager
-          equipmentProperties={equipmentProperties}
-          onChangeEquipmentProperties={onChangeEquipmentProperties}
-          equipments={equipments}
-          equipmentTypes={equipmentTypes}
-          activities={activities}
-          categoryRecords={categoryRecords}
-          onResetCatalog={onResetEquipmentPropertiesCatalog}
-        />
-      )}
 
       {isEquipmentView && (
         <EquipmentManagement
@@ -194,27 +236,48 @@ export const EquipmentSection: React.FC<EquipmentSectionProps> = ({
           equipments={equipments}
           equipmentTypes={equipmentTypes}
           equipmentProperties={equipmentProperties}
+          specGroups={specGroups}
+          categoryRecords={categoryRecords}
           activities={activities}
           currentUser={currentUser}
           partners={partners}
+          personProfiles={personProfiles}
           onCreatePartner={onCreatePartner}
           onUpdatePartner={handleUpdatePartnerWithDraftSync}
           onDeletePartner={handleDeletePartnerWithDraftSync}
           onCreateEquipment={onCreateEquipment}
           onUpdateEquipment={onUpdateEquipment}
           onDeleteEquipment={onDeleteEquipment}
+          onSyncEquipmentActivities={onSyncEquipmentActivities}
           onChangeEquipmentStatus={onChangeEquipmentStatus}
           onSaveEquipmentTypes={onSaveEquipmentTypes}
-          onNavigateToEquipmentProperties={() => onNavigate('activity_meta_library')}
+          onNavigateToEquipmentProperties={() => onNavigate('unified_reference')}
           onNavigateToPartnersPage={handleNavigateToPartnersPage}
-          restoredDraft={restoredDraft}
-          onConsumeRestoredDraft={() => setRestoredDraft(null)}
-          pendingPartnersReturnDraft={
-            currentNavKey === 'activity_equipment_partners' ? pausedDraft?.item || null : null
-          }
+          restoredDraft={effectiveRestoredDraft}
+          onConsumeRestoredDraft={handleConsumeEffectiveRestoredDraft}
+          pendingPartnersReturnDraft={null}
           onSelectPartnerForDraft={handleSelectPartnerForDraft}
           onReturnToEquipmentDraft={handleReturnToEquipmentDraft}
+          preselectedProfileForAsset={preselectedProfileForAsset}
+          onConsumePreselectedProfile={onConsumePreselectedProfile}
+          equipmentUnitKinds={equipmentUnitKinds}
+          manufacturers={manufacturers}
+          manufacturerModels={manufacturerModels}
+          onCreateEquipmentUnitKind={onCreateEquipmentUnitKind}
+          onCreateManufacturer={onCreateManufacturer}
+          onCreateManufacturerModel={onCreateManufacturerModel}
           onOpenActivityInEditor={onOpenActivityInEditor}
+          onAddNewActivityForEquipment={
+            onOpenAddActivityFromEquipment
+              ? (draftItem, isNew, presetCategoryPath) =>
+                  onOpenAddActivityFromEquipment(
+                    draftItem,
+                    isNew,
+                    currentNavKey,
+                    presetCategoryPath
+                  )
+              : undefined
+          }
         />
       )}
     </>

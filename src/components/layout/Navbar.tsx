@@ -1,5 +1,19 @@
 import React, { useState } from 'react';
-import { Anchor, Menu, PlusCircle, ChevronLeft, Bell, Users, ChevronDown, Check, PanelRightClose, PanelRightOpen } from 'lucide-react';
+import {
+  Anchor,
+  Menu,
+  PlusCircle,
+  ChevronLeft,
+  Bell,
+  Users,
+  ChevronDown,
+  Check,
+  PanelRightClose,
+  PanelRightOpen,
+  Globe,
+  Navigation,
+  ShieldCheck
+} from 'lucide-react';
 import { NavigationItemKey } from './Sidebar';
 import { AppUser } from '../../types/auth';
 
@@ -19,6 +33,10 @@ interface NavbarProps {
   userFavoritesCounts?: Record<string, number>;
   isSidebarCollapsed?: boolean;
   onToggleSidebarCollapse?: () => void;
+  onOpenPersonProfiles?: () => void;
+  isAuthenticatedSession?: boolean;
+  adminConfigured?: boolean;
+  onOpenAuthModal?: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -35,19 +53,25 @@ export const Navbar: React.FC<NavbarProps> = ({
   onSwitchUser,
   userFavoritesCounts = {},
   isSidebarCollapsed = false,
-  onToggleSidebarCollapse
+  onToggleSidebarCollapse,
+  onOpenPersonProfiles,
+  isAuthenticatedSession = false,
+  adminConfigured = false,
+  onOpenAuthModal
 }) => {
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const getBreadcrumbs = (key: NavigationItemKey) => {
     switch (key) {
       case 'dashboard':
         return ['الرئيسية', 'لوحة التحكم العامة'];
+      case 'customer_storefront':
+        return ['الجمهور والحجز المباشر', 'بوابة العميل والمتجر'];
+      case 'unified_reference':
+        return ['البيانات المرجعية', 'المرجع الموحد'];
       case 'activity_add':
         return ['إدارة نشاط', 'إضافة نشاط'];
       case 'activity_collections':
         return ['إدارة نشاط', 'إضافة مجموعات (Collections)'];
-      case 'activity_categories':
-        return ['إدارة نشاط', 'إدارة التصنيفات'];
       case 'activity_manage':
         return ['إدارة نشاط', 'تعديل وإدارة الأنشطة'];
       case 'activity_marketplace':
@@ -58,34 +82,39 @@ export const Navbar: React.FC<NavbarProps> = ({
         return ['إدارة نشاط', 'التخفيضات والأسعار'];
       case 'activity_pricing_properties':
         return ['إدارة نشاط', 'خصائص السعر'];
-      case 'activity_custom_specs':
-        return ['إدارة نشاط', 'ادارة المواصفات الفنية مخصصة'];
       case 'pricing_tool':
         return ['الرئيسية', 'أداة التسعير'];
       case 'activity_favorites':
         return ['الرئيسية', 'المفضلة'];
-      case 'activity_meta_library':
-        return ['إدارة المعدات', 'خصائص المعدات'];
       case 'activity_equipment':
         return ['إدارة المعدات', 'سجل وإدارة المعدات'];
       case 'activity_equipment_add':
         return ['إدارة المعدات', 'إضافة معدة'];
       case 'activity_equipment_manage':
         return ['إدارة المعدات', 'تعديل وادارة المعدات'];
-      case 'activity_equipment_types':
-        return ['إدارة المعدات', 'انواع المعدات والمواصفات'];
+      case 'equipment_occupancy':
+        return ['إدارة المعدات', 'تقويم الإشغال والصيانة'];
       case 'activity_equipment_partners':
-        return ['إدارة المعدات', 'سجل الشركاء'];
+      case 'person_profiles':
+        return ['الملفات الشخصية والموردين', 'إدارة الملفات والحسابات المشتركة'];
       case 'logistics_manage':
         return ['إدارة اللوجستيات', 'سجل وإدارة وسائل النقل'];
       case 'logistics_add':
         return ['إدارة اللوجستيات', 'إضافة وسيلة نقل'];
       case 'logistics_transfers':
         return ['إدارة اللوجستيات', 'تحركات ونقل الأنشطة'];
+      case 'driver_portal':
+        return ['إدارة اللوجستيات', 'تطبيق السائق الميداني'];
+      case 'partner_earnings':
+        return ['المعاملات المالية', 'مستحقاتي وأرباحي المالية'];
       case 'finance_wallets':
         return ['المعاملات المالية', 'المحفظة والتوريد QR'];
       case 'finance_cashier':
         return ['المعاملات المالية', 'التحصيل اليدوي والتسويات'];
+      case 'operational_costs':
+        return ['المعاملات المالية', 'التكلفة التشغيلية'];
+      case 'trip_add':
+        return ['إدارة الرحلات', 'إنشاء رحلة'];
       case 'compare_activities':
         return ['إدارة الرحلات', 'اختيار نشاط (مقارنة الأنشطة)'];
       case 'trips_combo':
@@ -96,12 +125,18 @@ export const Navbar: React.FC<NavbarProps> = ({
         return ['إدارة الحجوزات', 'حجوزات الأنشطة'];
       case 'bookings_trips':
         return ['إدارة الحجوزات', 'حجوزات الرحلات'];
+      case 'bookings_in_trip_requests':
+        return ['إدارة الحجوزات', 'طلبات أثناء الرحلة أو النشاط'];
       case 'performance_approvals':
         return ['الاعتماد والجودة', 'الأداء والاعتماد'];
       case 'reports':
         return ['الإحصائيات', 'التقارير المالية والتشغيلية'];
       case 'platform_audit_logs':
         return ['الرقابة والحوكمة', 'إدارة السجلات بالمنصة'];
+      case 'user_management':
+        return ['الرقابة والحوكمة', 'إدارة المستخدمين والصلاحيات'];
+      case 'owner_theme_studio':
+        return ['تخصيص المظهر', 'القوالب والألوان والخطوط'];
     }
   };
 
@@ -111,36 +146,45 @@ export const Navbar: React.FC<NavbarProps> = ({
       case 'activity_favorites':
       case 'pricing_tool':
         return 'dashboard';
+      case 'customer_storefront':
+        return 'customer_storefront';
+      case 'unified_reference':
+        return 'unified_reference';
       case 'activity_add':
       case 'activity_collections':
-      case 'activity_categories':
       case 'activity_manage':
       case 'activity_marketplace':
       case 'activity_offers':
       case 'activity_discounts':
       case 'activity_pricing_properties':
-      case 'activity_custom_specs':
         return 'activity_manage';
-      case 'activity_meta_library':
+      case 'equipment_occupancy':
+        return 'activity_equipment';
       case 'activity_equipment':
       case 'activity_equipment_add':
       case 'activity_equipment_manage':
-      case 'activity_equipment_types':
       case 'activity_equipment_partners':
-        return 'activity_equipment_manage';
+      case 'person_profiles':
+        return 'person_profiles';
       case 'logistics_manage':
       case 'logistics_add':
       case 'logistics_transfers':
+      case 'driver_portal':
         return 'logistics_manage';
+      case 'partner_earnings':
       case 'finance_wallets':
       case 'finance_cashier':
+      case 'operational_costs':
         return 'finance_wallets';
+      case 'trip_add':
+        return 'trip_add';
       case 'compare_activities':
       case 'trips_combo':
       case 'trips_schedule':
         return 'compare_activities';
       case 'bookings_activities':
       case 'bookings_trips':
+      case 'bookings_in_trip_requests':
         return 'bookings_activities';
       case 'performance_approvals':
         return 'performance_approvals';
@@ -148,6 +192,10 @@ export const Navbar: React.FC<NavbarProps> = ({
         return 'reports';
       case 'platform_audit_logs':
         return 'platform_audit_logs';
+      case 'user_management':
+        return 'user_management';
+      case 'owner_theme_studio':
+        return 'owner_theme_studio';
     }
   };
 
@@ -209,11 +257,66 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
 
           {/* Left side actions */}
-          <div className="flex items-center gap-2 sm:gap-3">
+          <div className="flex items-center gap-2 sm:gap-2.5">
+            {onSelectNav && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => onSelectNav('customer_storefront')}
+                  className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                    currentNavKey === 'customer_storefront'
+                      ? 'bg-emerald-600/20 border-emerald-500/50 text-emerald-300'
+                      : 'bg-slate-900 hover:bg-slate-800 border-slate-800 text-slate-300 hover:text-emerald-300'
+                  }`}
+                  title="بوابة العميل والمتجر العام"
+                >
+                  <Globe className="w-3.5 h-3.5 text-emerald-400" />
+                  <span className="hidden xl:inline">المتجر (عميل)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onSelectNav('driver_portal')}
+                  className={`hidden sm:flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                    currentNavKey === 'driver_portal'
+                      ? 'bg-cyan-600/20 border-cyan-500/50 text-cyan-300'
+                      : 'bg-slate-900 hover:bg-slate-800 border-slate-800 text-slate-300 hover:text-cyan-300'
+                  }`}
+                  title="واجهة السائق الميدانية"
+                >
+                  <Navigation className="w-3.5 h-3.5 text-cyan-400" />
+                  <span className="hidden xl:inline">السائق</span>
+                </button>
+              </>
+            )}
+
+            {onOpenAuthModal && (
+              <button
+                type="button"
+                onClick={onOpenAuthModal}
+                className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
+                  isAuthenticatedSession
+                    ? 'bg-emerald-950/50 border-emerald-700/50 text-emerald-300 hover:bg-emerald-900/50'
+                    : !adminConfigured
+                      ? 'bg-amber-950/60 border-amber-600/50 text-amber-300 hover:bg-amber-900/60'
+                      : 'bg-slate-900 border-slate-800 text-slate-300 hover:text-white'
+                }`}
+                title="الدخول الفعلي وتأمين حساب الإدارة"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 shrink-0" />
+                <span className="hidden lg:inline">
+                  {isAuthenticatedSession
+                    ? 'جلسة موثقة'
+                    : !adminConfigured
+                      ? 'تأمين / دخول'
+                      : 'دخول'}
+                </span>
+              </button>
+            )}
+
             {onOpenBookingsQueue && (
               <button
                 onClick={onOpenBookingsQueue}
-                className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-850 text-slate-300 hover:text-white border border-slate-800 text-xs font-semibold transition-colors"
+                className="relative flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-850 text-slate-300 hover:text-white border border-slate-800 text-xs font-semibold transition-colors whitespace-nowrap shrink-0"
                 title="طلبات الحجز الواردة"
               >
                 <Bell className="w-3.5 h-3.5 text-amber-400" />
@@ -252,9 +355,11 @@ export const Navbar: React.FC<NavbarProps> = ({
                     />
                     <div className="absolute left-0 mt-2 w-72 bg-slate-900 border border-slate-800 rounded-xl shadow-2xl p-2 z-50 text-right">
                       <div className="px-2.5 py-1.5 border-b border-slate-800/80 mb-1.5">
-                        <div className="text-[11px] font-bold text-slate-200">تبديل حساب المستخدم (3 شركاء)</div>
+                        <div className="text-[11px] font-bold text-slate-200">
+                          تبديل حساب المستخدم ({allUsers.length} حسابات)
+                        </div>
                         <div className="text-[10px] text-slate-400 leading-relaxed mt-0.5">
-                          لكل مستخدم مفضلة وملفات خاصة بحسابه، ولا تظهر أنشطة الآخرين في التعديل ولكن تظهر للجميع في «متجر الأنشطة».
+                          لكل مستخدم صفحة ومفضلة وأنشطة خاصة بحسابه؛ كما تظهر هنا صفحات الموردين المشتركين بالمنصة بكامل صلاحيات التعديل والحذف.
                         </div>
                       </div>
 
@@ -299,8 +404,22 @@ export const Navbar: React.FC<NavbarProps> = ({
                         })}
                       </div>
 
-                      <div className="mt-2 pt-2 border-t border-slate-800/60 px-2 text-[10px] text-slate-400">
-                        الحساب الحالي: <strong className="text-cyan-400">{currentUser.name}</strong>
+                      <div className="mt-2 pt-2 border-t border-slate-800/60 px-2 space-y-1.5 text-[10px] text-slate-400">
+                        <div>
+                          الحساب الحالي: <strong className="text-cyan-400">{currentUser.name}</strong>
+                        </div>
+                        {onOpenPersonProfiles && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              onOpenPersonProfiles();
+                              setIsUserMenuOpen(false);
+                            }}
+                            className="w-full py-1.5 px-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-300 font-bold text-center transition-colors cursor-pointer"
+                          >
+                            الملفات الشخصية ومطابقة الهاتف
+                          </button>
+                        )}
                       </div>
                     </div>
                   </>

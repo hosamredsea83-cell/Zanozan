@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   ShieldAlert,
   Clock,
@@ -10,7 +10,9 @@ import {
   Eye,
   X,
   Building2,
-  FileText
+  FileText,
+  Check,
+  AlertTriangle
 } from 'lucide-react';
 import {
   AUDIT_ACTION_META,
@@ -29,6 +31,7 @@ import {
 
 interface PlatformAuditLogsViewProps {
   auditLogs: AuditLogEntry[];
+  onDeleteAuditLogs?: (ids: string[]) => void;
 }
 
 type AuditColKey =
@@ -66,10 +69,17 @@ type QuickDomainGroup =
   | 'finance_pricing'
   | 'favorites';
 
-export const PlatformAuditLogsView: React.FC<PlatformAuditLogsViewProps> = ({ auditLogs }) => {
+export const PlatformAuditLogsView: React.FC<PlatformAuditLogsViewProps> = ({
+  auditLogs,
+  onDeleteAuditLogs
+}) => {
   const [domainGroupFilter, setDomainGroupFilter] = useState<QuickDomainGroup>('all');
   const [actionQuickFilter, setActionQuickFilter] = useState<'all' | AuditActionType>('all');
   const [selectedEntry, setSelectedEntry] = useState<AuditLogEntry | null>(null);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [confirmRowDeleteId, setConfirmRowDeleteId] = useState<string | null>(null);
+  const [confirmBulkDelete, setConfirmBulkDelete] = useState(false);
+  const selectAllRef = useRef<HTMLInputElement | null>(null);
 
   const table = useRegistryTableState<AuditColKey>(AUDIT_COLUMNS);
 
@@ -240,6 +250,63 @@ export const PlatformAuditLogsView: React.FC<PlatformAuditLogsViewProps> = ({ au
     table.sortColumn,
     table.sortDirection
   ]);
+
+  const visibleIds = useMemo(() => filteredLogs.map((entry) => entry.id), [filteredLogs]);
+  const allVisibleSelected =
+    visibleIds.length > 0 && visibleIds.every((id) => selectedIds.includes(id));
+  const someVisibleSelected =
+    visibleIds.some((id) => selectedIds.includes(id)) && !allVisibleSelected;
+
+  useEffect(() => {
+    if (selectAllRef.current) {
+      selectAllRef.current.indeterminate = someVisibleSelected;
+    }
+  }, [someVisibleSelected]);
+
+  useEffect(() => {
+    const existingIds = new Set(auditLogs.map((l) => l.id));
+    setSelectedIds((prev) => {
+      const next = prev.filter((id) => existingIds.has(id));
+      return next.length === prev.length ? prev : next;
+    });
+    if (selectedEntry && !existingIds.has(selectedEntry.id)) {
+      setSelectedEntry(null);
+    }
+  }, [auditLogs, selectedEntry]);
+
+  const handleToggleSelectAll = () => {
+    setConfirmBulkDelete(false);
+    if (allVisibleSelected) {
+      const visibleSet = new Set(visibleIds);
+      setSelectedIds((prev) => prev.filter((id) => !visibleSet.has(id)));
+    } else {
+      setSelectedIds((prev) => Array.from(new Set([...prev, ...visibleIds])));
+    }
+  };
+
+  const handleToggleRowSelect = (id: string) => {
+    setConfirmBulkDelete(false);
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleConfirmSingleDelete = (id: string) => {
+    onDeleteAuditLogs?.([id]);
+    setSelectedIds((prev) => prev.filter((item) => item !== id));
+    if (selectedEntry?.id === id) setSelectedEntry(null);
+    setConfirmRowDeleteId(null);
+  };
+
+  const handleConfirmBulkDelete = () => {
+    if (selectedIds.length === 0) return;
+    onDeleteAuditLogs?.(selectedIds);
+    if (selectedEntry && selectedIds.includes(selectedEntry.id)) {
+      setSelectedEntry(null);
+    }
+    setSelectedIds([]);
+    setConfirmBulkDelete(false);
+  };
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -452,10 +519,99 @@ export const PlatformAuditLogsView: React.FC<PlatformAuditLogsViewProps> = ({ au
           }}
         />
 
+        {/* Selection & Bulk Delete Action Bar */}
+        <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 bg-slate-950/80 border-b border-slate-800 text-xs">
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="inline-flex items-center gap-2 cursor-pointer select-none text-slate-200 font-semibold">
+              <input
+                type="checkbox"
+                checked={allVisibleSelected}
+                onChange={handleToggleSelectAll}
+                disabled={filteredLogs.length === 0}
+                className="w-4 h-4 rounded border-slate-600 bg-slate-900 accent-cyan-500 cursor-pointer disabled:opacity-40"
+              />
+              <span>تحديد الكل ({filteredLogs.length})</span>
+            </label>
+
+            {selectedIds.length > 0 && (
+              <>
+                <span className="px-2 py-0.5 rounded-md bg-cyan-950/70 border border-cyan-500/40 text-cyan-300 font-mono text-[11px] font-bold">
+                  محدد: {selectedIds.length}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedIds([]);
+                    setConfirmBulkDelete(false);
+                  }}
+                  className="text-[11px] text-slate-400 hover:text-white underline cursor-pointer"
+                >
+                  إلغاء التحديد
+                </button>
+              </>
+            )}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            {confirmBulkDelete && selectedIds.length > 0 ? (
+              <div className="flex flex-wrap items-center gap-2 bg-rose-950/60 border border-rose-500/40 rounded-lg px-3 py-1">
+                <AlertTriangle className="w-3.5 h-3.5 text-rose-400 shrink-0" />
+                <span className="text-[11px] text-rose-200 font-semibold">
+                  تأكيد حذف {selectedIds.length} سجل نهائياً؟
+                </span>
+                <button
+                  type="button"
+                  onClick={handleConfirmBulkDelete}
+                  className="px-2.5 py-1 rounded bg-rose-600 hover:bg-rose-500 text-white text-[11px] font-bold cursor-pointer"
+                >
+                  تأكيد الحذف
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setConfirmBulkDelete(false)}
+                  className="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-[11px] cursor-pointer"
+                >
+                  إلغاء
+                </button>
+              </div>
+            ) : (
+              <button
+                type="button"
+                disabled={selectedIds.length === 0}
+                onClick={() => setConfirmBulkDelete(true)}
+                className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-xs font-bold transition-colors ${
+                  selectedIds.length > 0
+                    ? 'bg-rose-600 hover:bg-rose-500 border-rose-500 text-white cursor-pointer shadow-sm'
+                    : 'bg-slate-900 border-slate-800 text-slate-500 cursor-not-allowed'
+                }`}
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>
+                  {selectedIds.length > 0 ? `حذف (${selectedIds.length})` : 'حذف'}
+                </span>
+              </button>
+            )}
+          </div>
+        </div>
+
         <div className="overflow-x-auto">
           <table className="w-full text-right text-xs border-collapse">
             <thead className="bg-slate-950/90 border-b border-slate-800 text-slate-300">
               <tr>
+                <th className="px-3 py-3 font-bold whitespace-nowrap w-28">
+                  <label className="inline-flex items-center gap-1.5 cursor-pointer select-none">
+                    <input
+                      ref={selectAllRef}
+                      type="checkbox"
+                      checked={allVisibleSelected}
+                      onChange={handleToggleSelectAll}
+                      disabled={filteredLogs.length === 0}
+                      className="w-4 h-4 rounded border-slate-600 bg-slate-900 accent-cyan-500 cursor-pointer disabled:opacity-40"
+                      title="تحديد الكل"
+                    />
+                    <span>تحديد الكل</span>
+                  </label>
+                </th>
                 {[
                   { key: 'formattedDateTime' as AuditColKey, label: 'التاريخ والتوقيت' },
                   { key: 'actorName' as AuditColKey, label: 'المستخدم / الشركة' },
@@ -484,6 +640,9 @@ export const PlatformAuditLogsView: React.FC<PlatformAuditLogsViewProps> = ({ au
 
               {/* Writable Filter Inputs + Multi-select Dropdown Triggers */}
               <tr className="bg-slate-950/50 border-b border-slate-800">
+                <th className="px-2 py-2 text-center text-[10px] text-slate-500 font-normal">
+                  تحديد / حذف
+                </th>
                 {(
                   [
                     { key: 'formattedDateTime', placeholder: 'التاريخ / الوقت...' },
@@ -538,7 +697,7 @@ export const PlatformAuditLogsView: React.FC<PlatformAuditLogsViewProps> = ({ au
             <tbody className="divide-y divide-slate-800/70">
               {filteredLogs.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-14 text-center text-slate-400 space-y-2">
+                  <td colSpan={8} className="py-14 text-center text-slate-400 space-y-2">
                     <RefreshCw className="w-8 h-8 text-slate-600 mx-auto" />
                     <p className="font-bold text-slate-300">
                       {auditLogs.length === 0
@@ -555,15 +714,67 @@ export const PlatformAuditLogsView: React.FC<PlatformAuditLogsViewProps> = ({ au
                   const actionMeta = AUDIT_ACTION_META[entry.action];
                   const domainMeta = AUDIT_DOMAIN_META[entry.domain];
                   const isSelected = selectedEntry?.id === entry.id;
+                  const isChecked = selectedIds.includes(entry.id);
+                  const isConfirmingRowDelete = confirmRowDeleteId === entry.id;
 
                   return (
                     <tr
                       key={entry.id}
                       onClick={() => setSelectedEntry(isSelected ? null : entry)}
                       className={`transition-colors cursor-pointer ${
-                        isSelected ? 'bg-cyan-950/30' : 'hover:bg-slate-800/40'
+                        isChecked
+                          ? 'bg-rose-950/15 hover:bg-rose-950/25'
+                          : isSelected
+                          ? 'bg-cyan-950/30'
+                          : 'hover:bg-slate-800/40'
                       }`}
                     >
+                      <td
+                        className="px-3 py-3 whitespace-nowrap"
+                        onClick={(ev) => ev.stopPropagation()}
+                      >
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="checkbox"
+                            checked={isChecked}
+                            onChange={() => handleToggleRowSelect(entry.id)}
+                            aria-label={`تحديد السجل ${entry.entityName}`}
+                            className="w-4 h-4 rounded border-slate-600 bg-slate-900 accent-cyan-500 cursor-pointer shrink-0"
+                          />
+
+                          {isConfirmingRowDelete ? (
+                            <div className="inline-flex items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => handleConfirmSingleDelete(entry.id)}
+                                className="p-1 rounded bg-rose-600 hover:bg-rose-500 text-white cursor-pointer"
+                                title="تأكيد الحذف"
+                              >
+                                <Check className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setConfirmRowDeleteId(null)}
+                                className="p-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 cursor-pointer"
+                                title="إلغاء"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => setConfirmRowDeleteId(entry.id)}
+                              className="p-1.5 rounded-lg bg-slate-950 hover:bg-rose-950/70 border border-slate-800 hover:border-rose-500/50 text-rose-400 hover:text-rose-300 transition-colors cursor-pointer"
+                              title="حذف السجل"
+                              aria-label="حذف السجل"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+
                       <td className="px-3 py-3 whitespace-nowrap">
                         <div className="flex items-center gap-1.5 font-mono text-[11px] text-slate-200">
                           <Clock className="w-3.5 h-3.5 text-cyan-400 shrink-0" />

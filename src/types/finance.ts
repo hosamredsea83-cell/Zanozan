@@ -47,6 +47,17 @@ export interface Wallet {
   phone?: string;
 }
 
+export interface SelectedPaidAddonItem {
+  id: string;
+  addonId?: string;
+  title: string;
+  unitLabel?: string;
+  unitPriceEGP: number;
+  unitPriceEUR: number;
+  quantity: number;
+  stage?: 'checkout' | 'collection' | 'during_trip';
+}
+
 export interface CollectionRecord {
   id: string;
   bookingRef: string;
@@ -67,6 +78,7 @@ export interface CollectionRecord {
   totalBookingCostEUR: number;
   totalPaidEUR: number;
   remainingAmountEUR: number;
+  selectedPaidAddons?: SelectedPaidAddonItem[];
   notes?: string;
 }
 
@@ -121,3 +133,154 @@ export interface FinancialAuditLog {
   details: string;
   impactEUR: number;
 }
+
+export interface InTripAddonRequestRecord {
+  id: string;
+  requestCode: string;
+  createdAt: string;
+  tripDate: string;
+  customerPhone: string;
+  customerName: string;
+  customerType: 'egyptian' | 'foreigner';
+  targetKind: 'activity' | 'trip';
+  targetId: string;
+  targetTitle: string;
+  linkedBookingId?: string;
+  linkedBookingKind?: 'activity_booking' | 'trip_booking';
+  linkedBookingCode?: string;
+  items: SelectedPaidAddonItem[];
+  totalAddedEGP: number;
+  totalAddedEUR: number;
+  notes?: string;
+}
+
+export interface CustomerReviewRecord {
+  id: string;
+  targetKind: 'activity' | 'trip';
+  targetId: string;
+  targetTitle: string;
+  customerName: string;
+  customerPhone?: string;
+  rating: number;
+  comment: string;
+  createdAt: string;
+  verifiedBookingCode?: string;
+}
+
+export const INITIAL_CUSTOMER_REVIEWS: CustomerReviewRecord[] = [
+  {
+    id: 'rev-seed-1',
+    targetKind: 'activity',
+    targetId: 'act-yacht-01',
+    targetTitle: 'رحلة يخت ملكي VIP خاص - جزيرة الجفتون',
+    customerName: 'كريم الشاذلي',
+    rating: 5,
+    comment: 'يخت نظيف جداً وطاقم محترف للغاية، وجبة الغداء البحرية كانت ممتازة والالتزام بالمواعيد دقيق.',
+    createdAt: '2026-11-01',
+    verifiedBookingCode: 'ZN-77210'
+  },
+  {
+    id: 'rev-seed-2',
+    targetKind: 'activity',
+    targetId: 'act-diving-03',
+    targetTitle: 'تجربة الغوص الاحترافي واستكشاف حطام السفن',
+    customerName: 'Marcus Becker',
+    rating: 5,
+    comment: 'Excellent diving instructors, well-maintained equipment, and safe briefing before every dive.',
+    createdAt: '2026-11-04',
+    verifiedBookingCode: 'ZN-78044'
+  },
+  {
+    id: 'rev-seed-3',
+    targetKind: 'trip',
+    targetId: 'trp-bk-204',
+    targetTitle: 'رحلة جماعية منظمة - سنوركلينج شعاب الفانوس والدلافين',
+    customerName: 'أ. سارة عبد الرحمن',
+    customerPhone: '+20 111 320 4490',
+    rating: 4,
+    comment: 'رحلة منظمة وممتعة جداً مع الأطفال، شاهدنا الدلافين وكانت تجربة رائعة.',
+    createdAt: '2026-11-12',
+    verifiedBookingCode: 'TR-5107'
+  }
+];
+
+export type DriverMissionStatus =
+  | 'assigned'
+  | 'en_route'
+  | 'picked_up'
+  | 'arrived'
+  | 'completed';
+
+export interface DriverMissionRecord {
+  bookingId: string;
+  bookingKind: 'activity_booking' | 'trip_booking';
+  status: DriverMissionStatus;
+  assignedDriverName?: string;
+  assignedVehicleId?: string;
+  assignedVehicleName?: string;
+  updatedAt: string;
+  driverNotes?: string;
+}
+
+export interface ResourceMaintenanceBlock {
+  id: string;
+  resourceKind: 'equipment' | 'vehicle';
+  resourceId: string;
+  resourceName: string;
+  startDate: string;
+  endDate: string;
+  reason: string;
+  licenseExpiryDate?: string;
+  createdAt: string;
+}
+
+export type BookingPayoutPartnerRole =
+  | 'activity_owner'
+  | 'driver'
+  | 'equipment_owner'
+  | 'tour_guide'
+  | 'delegate'
+  | 'platform';
+
+export interface BookingPartnerPayoutItem {
+  id: string;
+  partnerKey: string;
+  partnerRole: BookingPayoutPartnerRole;
+  partyUserId?: string;
+  partyProfileId?: string;
+  partyName: string;
+  walletId?: string;
+  amountEGP: number;
+  amountEUR: number;
+  calculationNote: string;
+  status: 'credited' | 'settled' | 'reversed';
+}
+
+export interface BookingFinancialAllocation {
+  bookingId: string;
+  bookingCode: string;
+  bookingKind: 'activity_booking' | 'trip_booking';
+  entityId: string;
+  entityName: string;
+  tripDate: string;
+  customerName: string;
+  currency: 'EGP' | 'EUR';
+  eurToEgpRate: number;
+  grossTotalEGP: number;
+  grossTotalEUR: number;
+  paidNowEGP: number;
+  paidNowEUR: number;
+  platformFeeEGP: number;
+  platformFeeEUR: number;
+  ownerUserId?: string;
+  ownerName: string;
+  ownerNetEGP: number;
+  ownerNetEUR: number;
+  payouts: BookingPartnerPayoutItem[];
+  status: 'pending_payment' | 'posted' | 'partially_refunded' | 'refunded';
+  refundedEGP: number;
+  refundedEUR: number;
+  updatedAt: string;
+}
+
+

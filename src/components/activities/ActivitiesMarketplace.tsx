@@ -10,6 +10,7 @@ import { AppUser } from '../../types/auth';
 import { EquipmentItem, EquipmentTypeDefinition } from '../../types/equipment';
 import { ActivityCardMediaGallery, ActivityCardAllProperties } from './ActivityCardSections';
 import { PlatformPricingSettings, computeCustomerFinalPrice } from '../pricing/PricingToolManager';
+import { activityBelongsToOwner } from '../../db/localActivitiesDb';
 
 interface ActivitiesMarketplaceProps {
   activities: Activity[];
@@ -230,7 +231,7 @@ export const ActivitiesMarketplace: React.FC<ActivitiesMarketplaceProps> = ({
             >
               <option value="all">جميع أصحاب الأنشطة ({uniqueOwners.length})</option>
               {uniqueOwners.map((owner) => (
-                <option key={owner.id} value={owner.name}>
+                <option key={`${owner.id}-${owner.name}`} value={owner.name}>
                   {owner.name} ({owner.companyName})
                 </option>
               ))}
@@ -328,8 +329,8 @@ export const ActivitiesMarketplace: React.FC<ActivitiesMarketplaceProps> = ({
           {filteredActivities.map((act) => {
             const isFav = favoriteIds.includes(act.id);
             const isCompared = compareIds.includes(act.id);
-            const isOwnActivity = currentUser 
-              ? (act.owner?.id === currentUser.id || act.owner?.name === currentUser.name)
+            const isOwnActivity = currentUser
+              ? activityBelongsToOwner(act, currentUser)
               : false;
 
             return (
@@ -353,8 +354,8 @@ export const ActivitiesMarketplace: React.FC<ActivitiesMarketplaceProps> = ({
                           نشاطك المباشر
                         </span>
                       ) : (
-                        <span className="px-2 py-0.5 rounded-md bg-slate-950/80 text-slate-400 border border-slate-800 text-[10px] font-medium shadow-md">
-                          مملوك لـ {act.owner.name.split(' ')[0]}
+                        <span className="px-2 py-0.5 rounded-md bg-slate-950/80 text-slate-300 border border-slate-800 text-[10px] font-medium shadow-md">
+                          {act.owner.companyName}
                         </span>
                       )}
                     </>
@@ -398,6 +399,7 @@ export const ActivitiesMarketplace: React.FC<ActivitiesMarketplaceProps> = ({
                 <div className="p-4 space-y-4 flex-1 flex flex-col justify-between">
                   <ActivityCardAllProperties
                     activity={act}
+                    showStatsAndChannels={isOwnActivity}
                     equipments={equipments}
                     equipmentTypes={equipmentTypes}
                     clientViewOnly={!isOwnActivity}

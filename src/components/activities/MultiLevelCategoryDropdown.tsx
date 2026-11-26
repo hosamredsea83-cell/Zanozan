@@ -238,9 +238,9 @@ export const MultiLevelCategoryDropdown: React.FC<MultiLevelCategoryDropdownProp
       {/* Dropdown Card (Multi-Level Flyout / Drilldown Panel) */}
       {isOpen && (
         <div className="absolute top-full left-0 right-0 z-50 mt-1.5 bg-slate-900 border border-slate-700 rounded-xl shadow-2xl overflow-hidden backdrop-blur-md animate-in fade-in-50 zoom-in-95 duration-150">
-          {/* Top Search Input */}
-          <div className="p-2.5 border-b border-slate-800 bg-slate-950/70">
-            <div className="relative">
+          {/* Top Search Input + X Close Button */}
+          <div className="p-2.5 border-b border-slate-800 bg-slate-950/70 flex items-center gap-2">
+            <div className="relative flex-1">
               <input
                 ref={searchInputRef}
                 type="text"
@@ -260,6 +260,19 @@ export const MultiLevelCategoryDropdown: React.FC<MultiLevelCategoryDropdownProp
                 </button>
               )}
             </div>
+            <button
+              type="button"
+              onClick={() => {
+                setIsOpen(false);
+                setIsAddingNew(false);
+                setSearchQuery('');
+              }}
+              className="p-2 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700 text-slate-400 hover:text-white transition-colors shrink-0 cursor-pointer"
+              title="إغلاق القائمة"
+              aria-label="إغلاق القائمة"
+            >
+              <X className="w-4 h-4" />
+            </button>
           </div>
 
           {/* Drilldown Navigation Header (When not searching & drilled into subcategories) */}

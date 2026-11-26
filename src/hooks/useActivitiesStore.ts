@@ -34,6 +34,7 @@ export function buildBlankActivityForUser(currentUser: AppUser): Activity {
       itinerary: []
     },
     status: '',
+    tripNature: '',
     owner: {
       id: currentUser.id,
       name: currentUser.name,
@@ -55,6 +56,7 @@ export function buildBlankActivityForUser(currentUser: AppUser): Activity {
       },
       activeRules: []
     },
+    selectedPricingProperties: [],
     seasonalDiscounts: [],
     minPax: 0,
     maxPax: 0,
@@ -71,6 +73,8 @@ export function buildBlankActivityForUser(currentUser: AppUser): Activity {
     paymentDeadlineHours: 0,
     metaGroups: [],
     resources: [],
+    equipmentIds: [],
+    showEquipmentToClient: false,
     logistics: {
       requiresTransfer: false,
       transferProvidedByOwner: false,
@@ -344,6 +348,41 @@ export function useActivitiesStore(
     );
   };
 
+  const syncEquipmentActivityLinks = (equipmentId: string, linkedActivityIds: string[]) => {
+    const targetSet = new Set(linkedActivityIds);
+    let changedCount = 0;
+
+    setActivities((prev) =>
+      prev.map((act) => {
+        const currentIds = act.equipmentIds || [];
+        const currentlyHas = currentIds.includes(equipmentId);
+        const shouldHave = targetSet.has(act.id);
+
+        if (currentlyHas === shouldHave) return act;
+        changedCount += 1;
+        const nextAct: Activity = {
+          ...act,
+          equipmentIds: shouldHave
+            ? [...currentIds, equipmentId]
+            : currentIds.filter((id) => id !== equipmentId)
+        };
+        void saveActivityToDb(nextAct);
+        return nextAct;
+      })
+    );
+
+    if (changedCount > 0) {
+      onAuditLog?.({
+        actor: currentUser,
+        action: 'update',
+        domain: 'equipment',
+        entityId: equipmentId,
+        entityName: equipmentId,
+        summary: `حدّث ${currentUser.name} ربط المعدة ${equipmentId} بعدد ${linkedActivityIds.length} نشاط`
+      });
+    }
+  };
+
   const renameCategoryPathPrefix = (prevPath: string[], levelIndex: number, nextName: string) => {
     setActivities((prev) =>
       prev.map((act) => {
@@ -375,6 +414,7 @@ export function useActivitiesStore(
     removeOfferFromActivity,
     updateActivityPricing,
     removeEquipmentReference,
+    syncEquipmentActivityLinks,
     renameCategoryPathPrefix
   };
 }

@@ -249,8 +249,16 @@ export const EquipmentCardsRegistry: React.FC<EquipmentCardsRegistryProps> = ({
                     </div>
 
                     <div className="absolute bottom-3 right-3 left-3">
-                      <div className="text-[11px] text-slate-300 flex items-center gap-2 mb-0.5">
+                      <div className="text-[11px] text-slate-300 flex items-center flex-wrap gap-1.5 mb-0.5">
                         <span>{eq.classification || 'تصنيف تشغيلي عام'}</span>
+                        {(eq.manufacturerName || eq.modelName) && (
+                          <>
+                            <span aria-hidden="true">·</span>
+                            <span className="text-cyan-300 font-semibold">
+                              {[eq.manufacturerName, eq.modelName].filter(Boolean).join(' ')}
+                            </span>
+                          </>
+                        )}
                         <span aria-hidden="true">·</span>
                         <span>
                           {OWNERSHIP_LABELS[eq.ownershipType]}

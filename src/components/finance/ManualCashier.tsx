@@ -1,5 +1,13 @@
 import React, { useMemo, useState } from 'react';
-import { CollectionRecord, FinancialSettlement, ManualCashierRole, PaymentPlanType } from '../../types/finance';
+import type { Activity } from '../../types/activity';
+import type { BookingRequest } from '../trips/BookingQueueModal';
+import {
+  CollectionRecord,
+  FinancialSettlement,
+  ManualCashierRole,
+  PaymentPlanType,
+  SelectedPaidAddonItem
+} from '../../types/finance';
 import { 
   ReceiptText, DollarSign, ShieldCheck, Plus, CheckCircle2, AlertCircle, 
   Clock, FileText, Check, X, Building, User, Lock, ExternalLink, Search
@@ -61,6 +69,8 @@ const COLLECTION_STATUS_LABELS: Record<CollectionRecord['status'], string> = {
 interface ManualCashierProps {
   collections: CollectionRecord[];
   settlements: FinancialSettlement[];
+  activities?: Activity[];
+  activityBookings?: BookingRequest[];
   onAddNewCollection: (record: Omit<CollectionRecord, 'id' | 'collectedAt' | 'status'>) => void;
   onRequestSettlement: (settlement: Omit<FinancialSettlement, 'id' | 'createdAt' | 'status'>) => void;
   onAuditSettlement: (settlementId: string, approved: boolean, notes: string) => void;
@@ -69,6 +79,8 @@ interface ManualCashierProps {
 export const ManualCashier: React.FC<ManualCashierProps> = ({
   collections,
   settlements,
+  activities = [],
+  activityBookings = [],
   onAddNewCollection,
   onRequestSettlement,
   onAuditSettlement
@@ -81,18 +93,21 @@ export const ManualCashier: React.FC<ManualCashierProps> = ({
   const tableState = useRegistryTableState<CashierColKey>(CASHIER_COLUMNS);
 
   // New Collection Record state
+  const [selectedSourceKey, setSelectedSourceKey] = useState<string>('custom');
+  const [selectedActivityId, setSelectedActivityId] = useState<string>(activities[0]?.id || 'act-yacht-01');
   const [bookingRef, setBookingRef] = useState('BK-88204');
   const [activityTitle, setActivityTitle] = useState('رحلة يخت ملكي خاص VIP - جزيرة الجفتون');
   const [collectorName, setCollectorName] = useState('أحمد نبيل العطار');
   const [collectorRole, setCollectorRole] = useState<ManualCashierRole>('company_delegate');
   const [collectorOrg, setCollectorOrg] = useState('ZanoZa Operations');
-  const [receivedAmount, setReceivedAmount] = useState<number>(5000);
+  const [baseReceivedAmount, setBaseReceivedAmount] = useState<number>(5000);
   const [receivedCurrency, setReceivedCurrency] = useState<'EGP' | 'EUR'>('EGP');
   const [lockedExchangeRate, setLockedExchangeRate] = useState<number>(50.0);
   const [planType, setPlanType] = useState<PaymentPlanType>('deposit');
   const [totalBookingCostEUR, setTotalBookingCostEUR] = useState<number>(350);
   const [receiptNumber, setReceiptNumber] = useState('RCPT-EGP-9935');
   const [notes, setNotes] = useState('استلام دفعة مقدمة نقداً');
+  const [cashierAddonItems, setCashierAddonItems] = useState<SelectedPaidAddonItem[]>([]);
 
   // New Settlement state (requested by owner)
   const [settlementOwnerName, setSettlementOwnerName] = useState('كابتن طارق السويفي (بلو أوشن)');
@@ -109,28 +124,152 @@ export const ManualCashier: React.FC<ManualCashierProps> = ({
     }
   };
 
-  const calculatedAccountingEUR = receivedCurrency === 'EUR'
-    ? receivedAmount
-    : Number((receivedAmount / (lockedExchangeRate || 1)).toFixed(2));
+  const buildAddonsForActivity = (
+    act: Activity | undefined,
+    existingAddons?: SelectedPaidAddonItem[]
+  ): SelectedPaidAddonItem[] => {
+    const existing = existingAddons || [];
+    const list: SelectedPaidAddonItem[] = (act?.inclusions?.paidAddons || []).map((ad) => {
+      const matched = existing.find(
+        (ex) =>
+          ex.id === ad.id ||
+          (ex.addonId && ad.addonId && ex.addonId === ad.addonId) ||
+          ex.title.trim().toLowerCase() === ad.title.trim().toLowerCase()
+      );
+      return {
+        id: ad.id,
+        addonId: ad.addonId,
+        title: ad.title,
+        unitLabel: ad.unitLabel,
+        unitPriceEGP: ad.priceEGP || 0,
+        unitPriceEUR: ad.priceEUR || 0,
+        quantity: matched?.quantity || 0,
+        stage: 'collection'
+      };
+    });
+    for (const ex of existing) {
+      if (!list.some((item) => item.id === ex.id || item.title.trim().toLowerCase() === ex.title.trim().toLowerCase())) {
+        list.push({ ...ex, stage: 'collection' });
+      }
+    }
+    return list;
+  };
+
+  const handleOpenAddReceiptModal = () => {
+    const firstAct = activities[0];
+    if (firstAct && selectedSourceKey === 'custom' && cashierAddonItems.length === 0) {
+      setCashierAddonItems(buildAddonsForActivity(firstAct));
+      setSelectedActivityId(firstAct.id);
+    }
+    setShowAddReceiptModal(true);
+  };
+
+  const handleSelectCashierSource = (key: string) => {
+    setSelectedSourceKey(key);
+    if (key.startsWith('booking:')) {
+      const bookingId = key.slice('booking:'.length);
+      const bk = activityBookings.find((b) => b.id === bookingId);
+      if (bk) {
+        const act = activities.find((a) => a.id === bk.activityId);
+        const cur: 'EGP' | 'EUR' = bk.customerType === 'egyptian' ? 'EGP' : 'EUR';
+        const existingAddons = bk.selectedPaidAddons || [];
+        const existingAddonsSum = existingAddons.reduce(
+          (s, a) => s + (cur === 'EGP' ? a.unitPriceEGP : a.unitPriceEUR) * a.quantity,
+          0
+        );
+        const rawBookingTotal = cur === 'EGP' ? bk.totalPriceEGP : bk.totalPriceEUR;
+        const base = Math.max(0, rawBookingTotal - existingAddonsSum);
+        setBookingRef(bk.bookingCode);
+        setSelectedActivityId(bk.activityId);
+        setActivityTitle(bk.activityName);
+        setReceivedCurrency(cur);
+        setBaseReceivedAmount(base);
+        setTotalBookingCostEUR(
+          cur === 'EUR'
+            ? rawBookingTotal
+            : Number((rawBookingTotal / (lockedExchangeRate || 50)).toFixed(2))
+        );
+        setCashierAddonItems(buildAddonsForActivity(act, existingAddons));
+      }
+      return;
+    }
+
+    if (key.startsWith('activity:')) {
+      const actId = key.slice('activity:'.length);
+      const act = activities.find((a) => a.id === actId);
+      if (act) {
+        setSelectedActivityId(act.id);
+        setActivityTitle(act.name);
+        setCashierAddonItems(buildAddonsForActivity(act));
+      }
+      return;
+    }
+
+    setCashierAddonItems([]);
+  };
+
+  const handleCashierAddonQtyChange = (addonId: string, nextQty: number) => {
+    const safeQty = Math.max(0, Math.floor(nextQty) || 0);
+    setCashierAddonItems((prev) =>
+      prev.map((item) => (item.id === addonId ? { ...item, quantity: safeQty } : item))
+    );
+  };
+
+  const cashierAddonsTotalInCurrency = useMemo(
+    () =>
+      cashierAddonItems.reduce(
+        (sum, item) =>
+          sum + (receivedCurrency === 'EGP' ? item.unitPriceEGP : item.unitPriceEUR) * item.quantity,
+        0
+      ),
+    [cashierAddonItems, receivedCurrency]
+  );
+
+  const cashierAddonsTotalEUR = useMemo(
+    () =>
+      cashierAddonItems.reduce(
+        (sum, item) =>
+          sum +
+          (item.unitPriceEUR > 0
+            ? item.unitPriceEUR
+            : item.unitPriceEGP / (lockedExchangeRate || 50)) *
+            item.quantity,
+        0
+      ),
+    [cashierAddonItems, lockedExchangeRate]
+  );
+
+  const totalReceivedAmount = baseReceivedAmount + cashierAddonsTotalInCurrency;
+
+  const calculatedAccountingEUR =
+    receivedCurrency === 'EUR'
+      ? totalReceivedAmount
+      : Number((totalReceivedAmount / (lockedExchangeRate || 1)).toFixed(2));
 
   const handleCreateCollection = (e: React.FormEvent) => {
     e.preventDefault();
+    const chosenAddons = cashierAddonItems.filter((a) => a.quantity > 0);
+    const effectiveTotalCostEUR = Math.max(
+      totalBookingCostEUR,
+      calculatedAccountingEUR
+    );
     onAddNewCollection({
       bookingRef,
-      activityId: 'act-yacht-01',
+      activityId: selectedActivityId || 'act-yacht-01',
       activityTitle,
       collectorName,
       collectorRole,
       collectorOrg,
-      receivedAmount,
+      receivedAmount: totalReceivedAmount,
       receivedCurrency,
       lockedExchangeRate,
       accountingValueEUR: calculatedAccountingEUR,
       receiptNumber,
       planType,
-      totalBookingCostEUR,
+      totalBookingCostEUR: effectiveTotalCostEUR,
       totalPaidEUR: calculatedAccountingEUR,
-      remainingAmountEUR: Math.max(0, totalBookingCostEUR - calculatedAccountingEUR),
+      remainingAmountEUR: Math.max(0, effectiveTotalCostEUR - calculatedAccountingEUR),
+      selectedPaidAddons: chosenAddons.length > 0 ? chosenAddons : undefined,
       notes
     });
     setShowAddReceiptModal(false);
@@ -332,7 +471,7 @@ export const ManualCashier: React.FC<ManualCashierProps> = ({
               />
             </div>
             <button
-              onClick={() => setShowAddReceiptModal(true)}
+              onClick={handleOpenAddReceiptModal}
               className="flex items-center gap-1.5 px-3.5 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg text-xs font-bold transition-colors shadow-sm"
             >
               <Plus className="w-4 h-4" />
@@ -466,6 +605,11 @@ export const ManualCashier: React.FC<ManualCashierProps> = ({
                   </td>
                   <td className="py-3 px-4 font-tajawal text-slate-200">
                     <div className="line-clamp-1">{col.activityTitle}</div>
+                    {col.selectedPaidAddons && col.selectedPaidAddons.length > 0 && (
+                      <div className="text-[10px] text-cyan-300 mt-0.5 tabular-nums">
+                        إضافات: {col.selectedPaidAddons.map((ad) => `${ad.title} × ${ad.quantity}`).join(' · ')}
+                      </div>
+                    )}
                   </td>
                   <td className="py-3 px-4 font-tajawal">
                     <div className="font-semibold text-slate-200">{col.collectorName}</div>
@@ -614,7 +758,7 @@ export const ManualCashier: React.FC<ManualCashierProps> = ({
         <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
           <form
             onSubmit={handleCreateCollection}
-            className="bg-slate-900 border border-slate-800 rounded-2xl max-w-lg w-full p-6 space-y-4"
+            className="bg-slate-900 border border-slate-800 rounded-2xl max-w-xl w-full p-6 space-y-4 max-h-[92vh] overflow-y-auto"
           >
             <div className="flex items-center justify-between border-b border-slate-800 pb-2">
               <h3 className="font-bold text-sm text-white">تسجيل إيصال تحصيل يدوي جديد</h3>
@@ -628,6 +772,39 @@ export const ManualCashier: React.FC<ManualCashierProps> = ({
             </div>
 
             <div className="space-y-3 text-xs">
+              {(activityBookings.length > 0 || activities.length > 0) && (
+                <div>
+                  <label className="text-slate-400 block mb-1">
+                    ربط بحجز أو نشاط (لجلب الإضافات المدفوعة وحسابها أوتوماتيك بالكمية):
+                  </label>
+                  <select
+                    value={selectedSourceKey}
+                    onChange={(e) => handleSelectCashierSource(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded p-2 text-slate-200"
+                  >
+                    <option value="custom">-- إدخال يدوي حر --</option>
+                    {activityBookings.length > 0 && (
+                      <optgroup label="حجوزات الأنشطة القائمة">
+                        {activityBookings.map((bk) => (
+                          <option key={bk.id} value={`booking:${bk.id}`}>
+                            #{bk.bookingCode} · {bk.customerName} — {bk.activityName}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                    {activities.length > 0 && (
+                      <optgroup label="الأنشطة المسجلة">
+                        {activities.map((act) => (
+                          <option key={act.id} value={`activity:${act.id}`}>
+                            {act.name} ({act.inclusions?.paidAddons?.length || 0} إضافات مدفوعة)
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                  </select>
+                </div>
+              )}
+
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="text-slate-400 block mb-1">رقم الحجز المرجعي:</label>
@@ -685,17 +862,87 @@ export const ManualCashier: React.FC<ManualCashierProps> = ({
                 </div>
               </div>
 
+              {/* Automatic Quantity-Based Paid Add-ons at Collection */}
+              {cashierAddonItems.length > 0 && (
+                <div className="p-3 bg-slate-950 border border-cyan-500/35 rounded-xl space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-cyan-300 font-bold text-[11px]">
+                      الإضافات الاختيارية المدفوعة وقت التحصيل (حساب أوتوماتيك بالكمية):
+                    </span>
+                    <span className="text-[10px] font-mono text-emerald-300 tabular-nums">
+                      +{cashierAddonsTotalInCurrency.toLocaleString()} {receivedCurrency}
+                    </span>
+                  </div>
+                  <div className="space-y-1.5 max-h-40 overflow-y-auto">
+                    {cashierAddonItems.map((item) => {
+                      const unitPrice =
+                        receivedCurrency === 'EGP' ? item.unitPriceEGP : item.unitPriceEUR;
+                      const subtotal = unitPrice * item.quantity;
+                      return (
+                        <div
+                          key={item.id}
+                          className={`flex items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 border ${
+                            item.quantity > 0
+                              ? 'bg-emerald-950/35 border-emerald-500/45'
+                              : 'bg-slate-900/70 border-slate-800'
+                          }`}
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="font-semibold text-white truncate">{item.title}</div>
+                            <div className="text-[10px] text-slate-400 font-mono tabular-nums">
+                              {unitPrice.toLocaleString()} {receivedCurrency}
+                              {item.unitLabel ? ` / ${item.unitLabel}` : ''}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => handleCashierAddonQtyChange(item.id, item.quantity - 1)}
+                              className="w-6 h-6 rounded bg-slate-800 hover:bg-slate-700 text-white font-bold cursor-pointer"
+                            >
+                              -
+                            </button>
+                            <input
+                              type="number"
+                              min={0}
+                              value={item.quantity}
+                              onChange={(e) =>
+                                handleCashierAddonQtyChange(
+                                  item.id,
+                                  parseInt(e.target.value, 10) || 0
+                                )
+                              }
+                              className="w-11 bg-slate-900 border border-slate-700 rounded py-0.5 text-center font-mono text-white font-bold tabular-nums"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleCashierAddonQtyChange(item.id, item.quantity + 1)}
+                              className="w-6 h-6 rounded bg-cyan-600 hover:bg-cyan-500 text-white font-bold cursor-pointer"
+                            >
+                              +
+                            </button>
+                            <span className="font-mono text-[11px] text-emerald-300 font-bold min-w-[64px] text-left tabular-nums">
+                              {subtotal > 0 ? `+${subtotal.toLocaleString()}` : '—'}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
               {/* Amount, Currency & Fixed Exchange Rate (Section 5 item 27) */}
               <div className="p-3 bg-slate-950 border border-slate-800 rounded-xl space-y-2">
                 <div className="grid grid-cols-3 gap-2">
                   <div>
-                    <label className="text-slate-400 block mb-1">المبلغ المقبوض:</label>
+                    <label className="text-slate-400 block mb-1">المبلغ الأساسي المقبوض:</label>
                     <input
                       type="number"
-                      min={1}
-                      value={receivedAmount}
-                      onChange={(e) => setReceivedAmount(parseFloat(e.target.value) || 0)}
-                      className="w-full bg-slate-900 border border-slate-800 rounded p-1.5 font-mono text-white text-center font-bold"
+                      min={0}
+                      value={baseReceivedAmount}
+                      onChange={(e) => setBaseReceivedAmount(parseFloat(e.target.value) || 0)}
+                      className="w-full bg-slate-900 border border-slate-800 rounded p-1.5 font-mono text-white text-center font-bold tabular-nums"
                     />
                   </div>
                   <div>
@@ -716,15 +963,25 @@ export const ManualCashier: React.FC<ManualCashierProps> = ({
                       step="0.1"
                       value={lockedExchangeRate}
                       onChange={(e) => setLockedExchangeRate(parseFloat(e.target.value) || 50)}
-                      className="w-full bg-slate-900 border border-slate-800 rounded p-1.5 font-mono text-cyan-300 text-center font-bold"
+                      className="w-full bg-slate-900 border border-slate-800 rounded p-1.5 font-mono text-cyan-300 text-center font-bold tabular-nums"
                     />
                   </div>
                 </div>
 
+                {cashierAddonsTotalInCurrency > 0 && (
+                  <div className="flex justify-between items-center text-[11px] pt-1 text-emerald-300 tabular-nums border-t border-slate-800/80">
+                    <span>الإجمالي النهائي للتحصيل (الأساسي + الإضافات بالكمية):</span>
+                    <span className="font-mono font-bold">
+                      {totalReceivedAmount.toLocaleString()} {receivedCurrency}
+                    </span>
+                  </div>
+                )}
+
                 <div className="flex justify-between items-center text-[11px] pt-1 text-slate-400">
                   <span>القيمة المحاسبية باليورو المرجعي:</span>
-                  <span className="font-mono text-cyan-400 font-bold text-sm">
+                  <span className="font-mono text-cyan-400 font-bold text-sm tabular-nums">
                     €{calculatedAccountingEUR.toFixed(2)}
+                    {cashierAddonsTotalEUR > 0 ? ` (يشمل €${cashierAddonsTotalEUR.toFixed(2)} إضافات)` : ''}
                   </span>
                 </div>
               </div>

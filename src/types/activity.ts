@@ -165,7 +165,9 @@ export interface ActivityInclusions {
   notIncluded: string[];
   paidAddons: {
     id: string;
+    addonId?: string;
     title: string;
+    unitLabel?: string;
     priceEGP: number;
     priceEUR: number;
   }[];
@@ -211,15 +213,20 @@ export interface PricingPropertyItem {
 
 export interface CustomTechnicalSpecItem {
   id: string;
+  groupId?: string;
   groupTitle: string;
   label: string;
   type: MetaFieldType;
+  unit?: string;
   defaultValue: string | number | boolean;
   options?: string[];
   isPublicForClient: boolean;
   isRequired: boolean;
   isActive: boolean;
   order: number;
+  linkedCategories?: string[];
+  linkedCategoryIds?: string[];
+  excludedCategoryIds?: string[];
 }
 
 export interface ActivitySelectedPricingProperty {
@@ -245,6 +252,17 @@ export interface DynamicPricingRuleEntry {
   is_active: boolean;
   priority: number;
   config: Record<string, any>;
+}
+
+export interface SupplierCustodyMeta {
+  isExternalSupplier: boolean;
+  supplierId: string;
+  supplierStatus: 'pending_signup' | 'claim_requested' | 'subscribed';
+  addedByUserId: string;
+  addedByUserName: string;
+  addedByCompanyName?: string;
+  claimedUserId?: string;
+  claimedAt?: string;
 }
 
 export interface Activity {
@@ -274,6 +292,7 @@ export interface Activity {
     phone: string;
     tier: string;
   };
+  supplierCustody?: SupplierCustodyMeta;
   media: ActivityMediaItem[];
   pricing: CustomerAudiencePricing;
   dynamicPricing?: {

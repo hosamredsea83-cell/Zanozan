@@ -3,6 +3,10 @@ import { Activity, ActivityMediaItem, CentralCategoryType, MetaField } from '../
 import { EquipmentItem, EquipmentTypeDefinition } from '../../types/equipment';
 import { PlatformPricingSettings, computeCustomerFinalPrice } from '../pricing/PricingToolManager';
 import {
+  ACTIVITY_TERMINOLOGY,
+  type EntityTerminologyConfig
+} from '../reference/creation/entityCreationTerminology';
+import {
   MapPin,
   Clock,
   Users,
@@ -106,6 +110,7 @@ interface ActivityCardMediaGalleryProps {
   topLeftOverlay?: React.ReactNode;
   topRightOverlay?: React.ReactNode;
   bottomOverlay?: React.ReactNode;
+  terms?: EntityTerminologyConfig;
 }
 
 export const ActivityCardMediaGallery: React.FC<ActivityCardMediaGalleryProps> = ({
@@ -113,7 +118,8 @@ export const ActivityCardMediaGallery: React.FC<ActivityCardMediaGalleryProps> =
   aspectClass = 'aspect-[16/9]',
   topLeftOverlay,
   topRightOverlay,
-  bottomOverlay
+  bottomOverlay,
+  terms = ACTIVITY_TERMINOLOGY
 }) => {
   const mediaList: ActivityMediaItem[] = activity.media || [];
   const defaultMedia =
@@ -163,7 +169,7 @@ export const ActivityCardMediaGallery: React.FC<ActivityCardMediaGalleryProps> =
               <div className="w-12 h-12 rounded-2xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-400">
                 <Play className="w-6 h-6" />
               </div>
-              <span className="text-xs font-bold text-white">{activeMedia.title || 'فيديو تعريفي للنشاط'}</span>
+              <span className="text-xs font-bold text-white">{activeMedia.title || terms.cardMediaDefaultVideoTitle}</span>
               {activeMedia.youtubeUrl && (
                 <a
                   href={activeMedia.youtubeUrl}
@@ -308,7 +314,7 @@ export const ActivityCardMediaGallery: React.FC<ActivityCardMediaGalleryProps> =
           </div>
         ) : (
           <div className="text-[11px] text-slate-500 py-2 text-center bg-slate-900/50 rounded-lg border border-slate-800">
-            لا توجد صور فرعية مرفوعة لهذا النشاط بعد
+            {terms.cardMediaEmptySubImages}
           </div>
         )}
       </div>
@@ -386,6 +392,7 @@ interface ActivityCardAllPropertiesProps {
   equipmentTypes?: EquipmentTypeDefinition[];
   clientViewOnly?: boolean;
   platformPricingSettings?: PlatformPricingSettings;
+  terms?: EntityTerminologyConfig;
 }
 
 export const ActivityCardAllProperties: React.FC<ActivityCardAllPropertiesProps> = ({
@@ -394,9 +401,11 @@ export const ActivityCardAllProperties: React.FC<ActivityCardAllPropertiesProps>
   equipments = [],
   equipmentTypes = [],
   clientViewOnly = false,
-  platformPricingSettings
+  platformPricingSettings,
+  terms = ACTIVITY_TERMINOLOGY
 }) => {
   const [customerCategory, setCustomerCategory] = useState<'all' | 'egyptian' | 'foreigner' | 'b2b'>('all');
+  const [addonQuantities, setAddonQuantities] = useState<Record<string, number>>({});
   const {
     categoryPath = [],
     primaryCategory,
@@ -507,55 +516,71 @@ export const ActivityCardAllProperties: React.FC<ActivityCardAllPropertiesProps>
       </div>
 
       {/* 2. جميع الخصائص والمواصفات الفنية (metaGroups) */}
-      <div className="bg-slate-950/60 border border-slate-800/80 rounded-xl p-3 space-y-2.5">
-        <div className="flex items-center justify-between">
-          <span className="font-bold text-white text-xs flex items-center gap-1.5">
-            <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-            <span>الخصائص والمواصفات الفنية للنشاط</span>
-          </span>
-          <span className="text-[10px] font-mono text-cyan-300 bg-cyan-950/50 border border-cyan-800/40 px-2 py-0.5 rounded">
-            {metaGroups.reduce((acc, g) => acc + g.fields.length, 0)} خاصية
-          </span>
-        </div>
+      {(() => {
+        const visibleMetaGroups = (clientViewOnly
+          ? metaGroups
+              .map((group) => ({
+                ...group,
+                fields: group.fields.filter((field) => field.isPublicForClient)
+              }))
+              .filter((group) => group.fields.length > 0)
+          : metaGroups);
+        const visibleFieldsCount = visibleMetaGroups.reduce((acc, g) => acc + g.fields.length, 0);
 
-        {metaGroups.length > 0 ? (
-          <div className="space-y-2.5">
-            {metaGroups.map((group) => (
-              <div key={group.id} className="bg-slate-900/70 border border-slate-800/70 rounded-lg p-2.5 space-y-2">
-                <div className="text-[11px] font-bold text-cyan-300 border-b border-slate-800/70 pb-1">
-                  {group.title}
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {group.fields.map((field) => (
-                    <div
-                      key={field.id}
-                      className="flex items-center justify-between gap-2 bg-slate-950/80 px-2.5 py-1.5 rounded-lg border border-slate-800/70 text-[11px]"
-                    >
-                      <div className="flex items-center gap-1 min-w-0">
-                        <span className="text-slate-400 truncate" title={field.label}>
-                          {field.label}:
-                        </span>
-                        {!field.isPublicForClient && (
-                          <span className="text-[9px] px-1 rounded bg-slate-800 text-amber-300 shrink-0">
-                            داخلي
-                          </span>
-                        )}
-                      </div>
-                      <span className="text-white font-semibold font-mono text-left shrink-0">
-                        {formatMetaValue(field)}
-                      </span>
+        return (
+          <div className="bg-slate-950/60 border border-slate-800/80 rounded-xl p-3 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="font-bold text-white text-xs flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
+                <span>{terms.cardSpecsHeaderTitle}</span>
+              </span>
+              <span className="text-[10px] font-mono text-cyan-300 bg-cyan-950/50 border border-cyan-800/40 px-2 py-0.5 rounded">
+                {visibleFieldsCount} خاصية
+              </span>
+            </div>
+
+            {visibleMetaGroups.length > 0 ? (
+              <div className="space-y-2.5">
+                {visibleMetaGroups.map((group) => (
+                  <div key={group.id} className="bg-slate-900/70 border border-slate-800/70 rounded-lg p-2.5 space-y-2">
+                    <div className="text-[11px] font-bold text-cyan-300 border-b border-slate-800/70 pb-1">
+                      {group.title}
                     </div>
-                  ))}
-                </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {group.fields.map((field) => (
+                        <div
+                          key={field.id}
+                          className="flex items-center justify-between gap-2 bg-slate-950/80 px-2.5 py-1.5 rounded-lg border border-slate-800/70 text-[11px]"
+                        >
+                          <div className="flex items-center gap-1 min-w-0">
+                            <span className="text-slate-400 truncate" title={field.label}>
+                              {field.label}:
+                            </span>
+                            {!clientViewOnly && !field.isPublicForClient && (
+                              <span className="text-[9px] px-1 rounded bg-slate-800 text-amber-300 shrink-0">
+                                داخلي
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-white font-semibold font-mono text-left shrink-0">
+                            {formatMetaValue(field)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
+            ) : (
+              <div className="text-[11px] text-slate-500 bg-slate-900/40 rounded-lg p-2 border border-slate-800/50">
+                {clientViewOnly
+                  ? 'لا توجد مواصفات عامة معلنة حالياً.'
+                  : 'لا توجد خصائص فنية إضافية مسجلة في مكتبة المواصفات.'}
+              </div>
+            )}
           </div>
-        ) : (
-          <div className="text-[11px] text-slate-500 bg-slate-900/40 rounded-lg p-2 border border-slate-800/50">
-            لا توجد خصائص فنية إضافية مسجلة في مكتبة المواصفات.
-          </div>
-        )}
-      </div>
+        );
+      })()}
 
       {/* 3. التسعير المعتمد الكامل (B2C + B2B + VIP + الخصومات الموسمية) */}
       <div className="bg-slate-950/60 border border-slate-800/80 rounded-xl p-3 space-y-2.5">
@@ -570,27 +595,32 @@ export const ActivityCardAllProperties: React.FC<ActivityCardAllPropertiesProps>
                 { id: 'all', label: 'الكل' },
                 { id: 'egyptian', label: 'عميل مصري' },
                 { id: 'foreigner', label: 'عميل أجنبي' },
-                { id: 'b2b', label: 'شركات B2B' }
+                ...(!clientViewOnly ? [{ id: 'b2b' as const, label: 'شركات B2B' }] : [])
               ] as const
-            ).map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setCustomerCategory(tab.id)}
-                className={`px-2 py-0.5 rounded-md font-semibold transition-colors cursor-pointer ${
-                  customerCategory === tab.id
-                    ? 'bg-cyan-600 text-white shadow-sm'
-                    : 'text-slate-400 hover:text-white'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
+            ).map((tab) => {
+              const effectiveTab = clientViewOnly && customerCategory === 'b2b' ? 'all' : customerCategory;
+              return (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setCustomerCategory(tab.id)}
+                  className={`px-2 py-0.5 rounded-md font-semibold transition-colors cursor-pointer ${
+                    effectiveTab === tab.id
+                      ? 'bg-cyan-600 text-white shadow-sm'
+                      : 'text-slate-400 hover:text-white'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              );
+            })}
           </div>
         </div>
 
         {/* الفئات العمرية المختارة والمحفوظة لهذا النشاط */}
         {(() => {
+          const effectiveCustomerCategory =
+            clientViewOnly && customerCategory === 'b2b' ? 'all' : customerCategory;
           const toDisplayEgp = (base: number) =>
             clientViewOnly && base > 0
               ? computeCustomerFinalPrice(base, platformPricingSettings, 'EGP').total
@@ -628,9 +658,9 @@ export const ActivityCardAllProperties: React.FC<ActivityCardAllPropertiesProps>
           const childB2bEurVal = toDisplayEur(pricing.foreignerB2B?.childEUR ?? 0);
           const infantB2bEurVal = toDisplayEur(pricing.foreignerB2B?.infantEUR ?? 0);
 
-          const showEgyptianB2C = customerCategory === 'all' || customerCategory === 'egyptian';
-          const showForeignerB2C = customerCategory === 'all' || customerCategory === 'foreigner';
-          const showB2B = customerCategory === 'b2b' || (!clientViewOnly && customerCategory === 'all');
+          const showEgyptianB2C = effectiveCustomerCategory === 'all' || effectiveCustomerCategory === 'egyptian';
+          const showForeignerB2C = effectiveCustomerCategory === 'all' || effectiveCustomerCategory === 'foreigner';
+          const showB2B = !clientViewOnly && (effectiveCustomerCategory === 'b2b' || effectiveCustomerCategory === 'all');
 
           return (
             <>
@@ -741,7 +771,7 @@ export const ActivityCardAllProperties: React.FC<ActivityCardAllPropertiesProps>
               <MapPin className="w-3.5 h-3.5 text-cyan-400" />
               <span>الموقع وخط السير ({location.itinerary.length} محطات)</span>
             </span>
-            {location.coordinates && (
+            {!clientViewOnly && location.coordinates && (
               <span className="text-[10px] font-mono text-slate-400">
                 {location.coordinates.lat.toFixed(3)}, {location.coordinates.lng.toFixed(3)}
               </span>
@@ -822,29 +852,31 @@ export const ActivityCardAllProperties: React.FC<ActivityCardAllPropertiesProps>
             <div className="text-[11px] text-slate-500 py-2">حسب الطلب والحجز المسبق</div>
           )}
 
-          {/* Resources */}
-          <div className="pt-2 border-t border-slate-800/70 space-y-1.5">
-            <span className="font-bold text-slate-200 text-[11px] flex items-center gap-1.5">
-              <Anchor className="w-3.5 h-3.5 text-cyan-400" />
-              <span>الموارد والمعدات التشغيلية المخصصة ({resources.length})</span>
-            </span>
-            {resources.length > 0 ? (
-              <div className="space-y-1">
-                {resources.map((res) => (
-                  <div key={res.id} className="flex items-center justify-between bg-slate-900/50 border border-slate-800/60 rounded-lg px-2 py-1 text-[10px]">
-                    <span className="text-slate-200 font-medium">
-                      {res.name} <span className="text-slate-500">({RESOURCE_TYPE_LABELS[res.type] || res.type})</span>
-                    </span>
-                    <span className="font-mono text-cyan-300 shrink-0">
-                      مطلوب {res.quantityRequired} / متاح {res.quantityAvailableTotal}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <span className="text-[10px] text-slate-500 block">لا توجد موارد مقيدة</span>
-            )}
-          </div>
+          {/* Resources (Internal operational only — never shown to clients) */}
+          {!clientViewOnly && (
+            <div className="pt-2 border-t border-slate-800/70 space-y-1.5">
+              <span className="font-bold text-slate-200 text-[11px] flex items-center gap-1.5">
+                <Anchor className="w-3.5 h-3.5 text-cyan-400" />
+                <span>الموارد والمعدات التشغيلية المخصصة ({resources.length})</span>
+              </span>
+              {resources.length > 0 ? (
+                <div className="space-y-1">
+                  {resources.map((res) => (
+                    <div key={res.id} className="flex items-center justify-between bg-slate-900/50 border border-slate-800/60 rounded-lg px-2 py-1 text-[10px]">
+                      <span className="text-slate-200 font-medium">
+                        {res.name} <span className="text-slate-500">({RESOURCE_TYPE_LABELS[res.type] || res.type})</span>
+                      </span>
+                      <span className="font-mono text-cyan-300 shrink-0">
+                        مطلوب {res.quantityRequired} / متاح {res.quantityAvailableTotal}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <span className="text-[10px] text-slate-500 block">لا توجد موارد مقيدة</span>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
@@ -899,24 +931,140 @@ export const ActivityCardAllProperties: React.FC<ActivityCardAllPropertiesProps>
               <AlertCircle className="w-3 h-3" /> غير مشمول في السعر:
             </span>
             <p className="text-slate-300">
-              {inclusions.notIncluded.length > 0 ? inclusions.notIncluded.join(' · ') : 'النشاط شامل كافة التكاليف المذكورة'}
+              {inclusions.notIncluded.length > 0 ? inclusions.notIncluded.join(' · ') : terms.notIncludedFallbackText}
             </p>
           </div>
 
-          <div className="bg-cyan-950/20 border border-cyan-900/30 rounded-lg p-2 space-y-1">
-            <span className="text-cyan-300 font-semibold flex items-center gap-1 text-[10px]">
-              <PlusCircle className="w-3 h-3" /> إضافات اختيارية مدفوعة ({inclusions.paidAddons.length}):
-            </span>
+          <div className="bg-cyan-950/20 border border-cyan-900/30 rounded-lg p-2.5 space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-cyan-300 font-semibold flex items-center gap-1 text-[10px]">
+                <PlusCircle className="w-3 h-3" /> إضافات اختيارية مدفوعة ({inclusions.paidAddons.length}):
+              </span>
+              <span className="text-[9px] text-slate-400">
+                {clientViewOnly ? 'حدد الإضافات المطلوبة عند الدفع' : 'متاحة للعميل عند الدفع'}
+              </span>
+            </div>
             {inclusions.paidAddons.length > 0 ? (
-              <div className="space-y-1">
-                {inclusions.paidAddons.map((addon) => (
-                  <div key={addon.id} className="flex items-center justify-between gap-2 text-[10px]">
-                    <span className="text-slate-200">{addon.title}</span>
-                    <span className="font-mono text-cyan-300 shrink-0">
-                      +{addon.priceEGP} ج.م / €{addon.priceEUR}
-                    </span>
-                  </div>
-                ))}
+              <div className="space-y-1.5">
+                {inclusions.paidAddons.map((addon) => {
+                  const qty = addonQuantities[addon.id] || 0;
+                  const isChecked = qty > 0;
+                  const setQty = (nextQty: number) => {
+                    const safeQty = Math.max(0, Math.floor(nextQty) || 0);
+                    setAddonQuantities((prev) => {
+                      const next = { ...prev };
+                      if (safeQty <= 0) delete next[addon.id];
+                      else next[addon.id] = safeQty;
+                      return next;
+                    });
+                  };
+                  return (
+                    <div
+                      key={addon.id}
+                      onClick={() => setQty(isChecked ? 0 : 1)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          setQty(isChecked ? 0 : 1);
+                        }
+                      }}
+                      className={`w-full flex flex-wrap items-center justify-between gap-2 text-[10px] px-2.5 py-2 rounded-lg border text-right transition-colors cursor-pointer ${
+                        isChecked
+                          ? 'bg-emerald-950/60 border-emerald-500/60 text-emerald-200'
+                          : 'bg-slate-900/60 hover:bg-slate-900 border-slate-800/80 text-slate-200'
+                      }`}
+                    >
+                      <span className="flex items-center gap-1.5 min-w-0 flex-1">
+                        <span
+                          className={`w-3.5 h-3.5 rounded flex items-center justify-center border shrink-0 ${
+                            isChecked
+                              ? 'bg-emerald-500 border-emerald-400 text-slate-950'
+                              : 'bg-slate-950 border-slate-600'
+                          }`}
+                        >
+                          {isChecked && <Check className="w-2.5 h-2.5 stroke-[3]" />}
+                        </span>
+                        <span className="truncate font-semibold">{addon.title}</span>
+                        {addon.unitLabel && (
+                          <span className="text-[9px] text-slate-400 shrink-0">
+                            ({addon.unitLabel})
+                          </span>
+                        )}
+                      </span>
+
+                      <div className="flex items-center gap-2 shrink-0">
+                        {isChecked && (
+                          <div
+                            className="inline-flex items-center gap-1 bg-slate-950/90 border border-emerald-500/40 rounded-md px-1 py-0.5"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <button
+                              type="button"
+                              onClick={() => setQty(qty - 1)}
+                              className="w-4 h-4 rounded bg-slate-800 hover:bg-slate-700 text-white font-bold flex items-center justify-center cursor-pointer"
+                              aria-label="إنقاص الكمية"
+                            >
+                              -
+                            </button>
+                            <input
+                              type="number"
+                              min={1}
+                              value={qty}
+                              onChange={(e) => setQty(Math.max(1, parseInt(e.target.value, 10) || 1))}
+                              className="w-9 bg-transparent text-center font-mono text-[10px] font-bold text-white focus:outline-none tabular-nums"
+                              aria-label={`كمية ${addon.title}`}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setQty(qty + 1)}
+                              className="w-4 h-4 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-bold flex items-center justify-center cursor-pointer"
+                              aria-label="زيادة الكمية"
+                            >
+                              +
+                            </button>
+                          </div>
+                        )}
+                        <span className="font-mono text-cyan-300 tabular-nums">
+                          {isChecked
+                            ? `+${(addon.priceEGP * qty).toLocaleString()} ج.م / €${(addon.priceEUR * qty).toLocaleString()}`
+                            : `+${addon.priceEGP} ج.م / €${addon.priceEUR}`}
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })}
+                {Object.keys(addonQuantities).length > 0 && (() => {
+                  const chosen = inclusions.paidAddons
+                    .filter((a) => (addonQuantities[a.id] || 0) > 0)
+                    .map((a) => ({ addon: a, qty: addonQuantities[a.id] || 0 }));
+                  const totalUnits = chosen.reduce((sum, item) => sum + item.qty, 0);
+                  const extraEgp = chosen.reduce((sum, item) => sum + (item.addon.priceEGP || 0) * item.qty, 0);
+                  const extraEur = chosen.reduce((sum, item) => sum + (item.addon.priceEUR || 0) * item.qty, 0);
+                  const baseAdultEgp = pricing.egyptianB2C?.adultEGP || 0;
+                  const baseAdultEur = pricing.foreignerB2C?.adultEUR || 0;
+                  const effectiveAdultEgp =
+                    clientViewOnly && baseAdultEgp > 0
+                      ? computeCustomerFinalPrice(baseAdultEgp, platformPricingSettings, 'EGP').total
+                      : baseAdultEgp;
+                  const effectiveAdultEur =
+                    clientViewOnly && baseAdultEur > 0
+                      ? computeCustomerFinalPrice(baseAdultEur, platformPricingSettings, 'EUR').total
+                      : baseAdultEur;
+                  const totalEgp = effectiveAdultEgp + extraEgp;
+                  const totalEur = effectiveAdultEur + extraEur;
+                  return (
+                    <div className="pt-1.5 mt-1 border-t border-cyan-800/40 flex flex-wrap items-center justify-between gap-2 text-[10px]">
+                      <span className="text-emerald-300 font-bold tabular-nums">
+                        مجموع الإضافات ({chosen.length} بند · {totalUnits} وحدة): +{extraEgp.toLocaleString()} ج.م / +€{extraEur.toLocaleString()}
+                      </span>
+                      <span className="font-mono text-white font-bold tabular-nums">
+                        الإجمالي التقديري عند الدفع: {totalEgp.toLocaleString()} ج.م · €{totalEur.toLocaleString()}
+                      </span>
+                    </div>
+                  );
+                })()}
               </div>
             ) : (
               <p className="text-slate-400">لا توجد إضافات مدفوعة</p>
@@ -939,6 +1087,8 @@ export const ActivityCardAllProperties: React.FC<ActivityCardAllPropertiesProps>
               {logistics.requiresTransfer
                 ? logistics.transferProvidedByOwner
                   ? 'مشمول / موفّر من المالك'
+                  : clientViewOnly
+                  ? 'يتوفر نقل منسّق حسب الطلب'
                   : 'يتطلب طلب نقل من السوق'
                 : 'تجمع مباشر في الموقع'}
             </span>
@@ -952,9 +1102,12 @@ export const ActivityCardAllProperties: React.FC<ActivityCardAllPropertiesProps>
             <span className="text-slate-200 text-left">{logistics.dropoffPoint}</span>
           </div>
           <div className="flex items-center justify-between">
-            <span className="text-slate-400">السعة / المركبة:</span>
+            <span className="text-slate-400">{clientViewOnly ? 'سعة النقل:' : 'السعة / المركبة:'}</span>
             <span className="text-slate-200 font-mono">
-              {logistics.passengerCapacity} راكب {logistics.assignedDriverOrVehicle ? `(${logistics.assignedDriverOrVehicle})` : ''}
+              {logistics.passengerCapacity} راكب{' '}
+              {!clientViewOnly && logistics.assignedDriverOrVehicle
+                ? `(${logistics.assignedDriverOrVehicle})`
+                : ''}
             </span>
           </div>
           {(logistics.separateTransferFeeEGP > 0 || logistics.separateTransferFeeEUR > 0) && (
@@ -1008,13 +1161,24 @@ export const ActivityCardAllProperties: React.FC<ActivityCardAllPropertiesProps>
               <span className="text-cyan-300 font-semibold text-left">{cancellationPolicy.name}</span>
             </div>
             <div className="text-[10px] text-slate-400 font-mono">
-              مهلة الاعتماد: {approvalDeadlineHours} س · مهلة الدفع: {paymentDeadlineHours} س · استرداد كامل قبل {cancellationPolicy.fullRefundHoursNotice} س
+              {clientViewOnly ? (
+                <>
+                  استرداد كامل قبل {cancellationPolicy.fullRefundHoursNotice} س
+                  {cancellationPolicy.partialRefundPercentage > 0
+                    ? ` · استرداد جزئي ${cancellationPolicy.partialRefundPercentage}% قبل ${cancellationPolicy.partialRefundHoursNotice} س`
+                    : ''}
+                </>
+              ) : (
+                <>
+                  مهلة الاعتماد: {approvalDeadlineHours} س · مهلة الدفع: {paymentDeadlineHours} س · استرداد كامل قبل {cancellationPolicy.fullRefundHoursNotice} س
+                </>
+              )}
             </div>
           </div>
         </div>
       </div>
 
-      {/* 6.5 المعدات المرتبطة بالنشاط (ملفات مستقلة بدون نسخ، مع احترام صلاحية الظهور للعميل) */}
+      {/* 6.5 المعدات المستخدمة ومواصفات كل معدة (ملفات مستقلة بدون نسخ، مع احترام صلاحية الظهور للعميل) */}
       {(() => {
         const linkedIds = activity.equipmentIds || [];
         if (linkedIds.length === 0 || equipments.length === 0) return null;
@@ -1036,12 +1200,12 @@ export const ActivityCardAllProperties: React.FC<ActivityCardAllPropertiesProps>
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/70 pb-2">
               <span className="font-bold text-white text-xs flex items-center gap-1.5">
                 <Wrench className="w-3.5 h-3.5 text-amber-400" />
-                <span>المعدات المرتبطة والمستخدمة في النشاط ({visibleEquipments.length})</span>
+                <span>{terms.cardLinkedEquipmentTitle(visibleEquipments.length)}</span>
               </span>
               {clientViewOnly ? (
                 <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-950/60 text-emerald-300 border border-emerald-800/40 flex items-center gap-1">
                   <Eye className="w-3 h-3" />
-                  <span>عرض العميل (البيانات العامة فقط)</span>
+                  <span>عرض العميل (الصفات العامة فقط)</span>
                 </span>
               ) : (
                 <span className="text-[10px] font-mono text-cyan-300 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">
@@ -1058,63 +1222,106 @@ export const ActivityCardAllProperties: React.FC<ActivityCardAllPropertiesProps>
                   : eq.media;
                 const publicImages = publicMedia.filter((m) => m.type === 'image');
 
-                const specRows: Array<{
+                const specGroupsToRender: Array<{
                   id: string;
-                  label: string;
-                  value: string;
-                  isPublic: boolean;
+                  title: string;
+                  rows: Array<{
+                    id: string;
+                    label: string;
+                    value: string;
+                    isPublic: boolean;
+                  }>;
                 }> = [];
 
                 eq.dynamicSpecs.forEach((grp) => {
-                  grp.fields.forEach((f) => {
-                    if (clientViewOnly && !f.isPublicForClient) return;
-                    const formattedVal =
-                      typeof f.value === 'boolean'
-                        ? f.value
-                          ? 'نعم'
-                          : 'لا'
-                        : Array.isArray(f.value)
-                        ? f.value.join('، ') || '—'
-                        : f.value === '' || f.value === undefined
-                        ? '—'
-                        : `${f.value}${f.unit ? ` ${f.unit}` : ''}`;
+                  const rows = grp.fields
+                    .filter((f) => (!clientViewOnly ? true : f.isPublicForClient))
+                    .map((f) => {
+                      const formattedVal =
+                        typeof f.value === 'boolean'
+                          ? f.value
+                            ? 'نعم'
+                            : 'لا'
+                          : Array.isArray(f.value)
+                          ? f.value.join('، ') || '—'
+                          : f.value === '' || f.value === undefined
+                          ? '—'
+                          : `${f.value}${f.unit ? ` ${f.unit}` : ''}`;
 
-                    specRows.push({
-                      id: f.fieldId,
-                      label: f.label,
-                      value: formattedVal,
-                      isPublic: f.isPublicForClient
+                      return {
+                        id: f.fieldId,
+                        label: f.label,
+                        value: formattedVal,
+                        isPublic: f.isPublicForClient
+                      };
                     });
-                  });
+
+                  if (rows.length > 0) {
+                    specGroupsToRender.push({
+                      id: grp.groupId,
+                      title: grp.title,
+                      rows
+                    });
+                  }
                 });
 
-                (eq.extraData || []).forEach((ex) => {
-                  if (clientViewOnly && !ex.isPublicForClient) return;
-                  specRows.push({
+                const extraRows = (eq.extraData || [])
+                  .filter((ex) => (!clientViewOnly ? true : ex.isPublicForClient))
+                  .map((ex) => ({
                     id: ex.id,
                     label: ex.label,
                     value: ex.value,
                     isPublic: ex.isPublicForClient
+                  }));
+
+                if (extraRows.length > 0) {
+                  specGroupsToRender.push({
+                    id: `${eq.id}-extra`,
+                    title: 'بيانات ومميزات إضافية للمعدة',
+                    rows: extraRows
                   });
-                });
+                }
 
                 return (
                   <div
                     key={eq.id}
-                    className="bg-slate-900/75 border border-slate-800/80 rounded-xl p-3 space-y-2"
+                    className="bg-slate-900/75 border border-slate-800/80 rounded-xl p-3 space-y-2.5"
                   >
                     <div className="flex flex-wrap items-start justify-between gap-2">
-                      <div>
+                      <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-1.5">
                           <span className="font-bold text-white text-xs">{eq.name}</span>
-                          <span className="text-[10px] font-mono bg-slate-950 text-cyan-300 border border-slate-800 px-1.5 py-0.5 rounded">
-                            {eq.id}
-                          </span>
-                          <span className="text-[10px] bg-amber-950/40 text-amber-300 border border-amber-800/40 px-1.5 py-0.5 rounded">
-                            {typeDef?.name || eq.classification}
-                          </span>
+                          {eq.translations?.en?.name && (
+                            <span dir="ltr" className="text-[10px] text-slate-400">
+                              ({eq.translations.en.name})
+                            </span>
+                          )}
+                          {!clientViewOnly && (
+                            <span className="text-[10px] font-mono bg-slate-950 text-cyan-300 border border-slate-800 px-1.5 py-0.5 rounded">
+                              {eq.id}
+                            </span>
+                          )}
+                          {(typeDef?.name || eq.classification) && (
+                            <span className="text-[10px] bg-amber-950/40 text-amber-300 border border-amber-800/40 px-1.5 py-0.5 rounded">
+                              {typeDef?.name || eq.classification}
+                            </span>
+                          )}
+                          {eq.operationalData.modelYear && (
+                            <span className="text-[10px] font-mono bg-slate-950 text-slate-300 border border-slate-800 px-1.5 py-0.5 rounded">
+                              موديل {eq.operationalData.modelYear}
+                            </span>
+                          )}
+                          {eq.operationalData.capacityOrUnitLabel && (
+                            <span className="text-[10px] bg-cyan-950/40 text-cyan-200 border border-cyan-800/40 px-1.5 py-0.5 rounded">
+                              {eq.operationalData.capacityOrUnitLabel}
+                            </span>
+                          )}
                         </div>
-                        <p className="text-[11px] text-slate-300 mt-1 leading-relaxed">{eq.description}</p>
+                        {eq.description && (
+                          <p className="text-[11px] text-slate-300 mt-1 leading-relaxed">
+                            {eq.description}
+                          </p>
+                        )}
                       </div>
 
                       {!clientViewOnly && (
@@ -1158,47 +1365,67 @@ export const ActivityCardAllProperties: React.FC<ActivityCardAllPropertiesProps>
                       </div>
                     )}
 
-                    {/* Dynamic Specs & Custom Fields */}
-                    {specRows.length > 0 && (
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1">
-                        {specRows.map((row) => (
-                          <div
-                            key={row.id}
-                            className="flex items-center justify-between gap-2 bg-slate-950/80 border border-slate-800/70 rounded-lg px-2 py-1 text-[10px]"
-                          >
-                            <span className="text-slate-400 flex items-center gap-1 truncate">
-                              {!clientViewOnly && !row.isPublic && (
-                                <span title="حقل داخلي لا يظهر للعميل" className="inline-flex shrink-0">
-                                  <EyeOff className="w-2.5 h-2.5 text-amber-400" />
-                                </span>
-                              )}
-                              <span className="truncate">{row.label}:</span>
-                            </span>
-                            <span className="text-slate-100 font-semibold font-mono shrink-0">
-                              {row.value}
-                            </span>
+                    {/* Per-Equipment Specs Grouped */}
+                    {specGroupsToRender.length > 0 && (
+                      <div className="space-y-2 pt-1">
+                        {specGroupsToRender.map((grp) => (
+                          <div key={grp.id} className="space-y-1">
+                            <div className="text-[10px] font-bold text-cyan-300">
+                              • {grp.title}:
+                            </div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+                              {grp.rows.map((row) => (
+                                <div
+                                  key={row.id}
+                                  className="flex items-center justify-between gap-2 bg-slate-950/80 border border-slate-800/70 rounded-lg px-2 py-1 text-[10px]"
+                                >
+                                  <span className="text-slate-400 flex items-center gap-1 truncate">
+                                    {!clientViewOnly && !row.isPublic && (
+                                      <span
+                                        title="حقل داخلي لا يظهر للعميل"
+                                        className="inline-flex shrink-0"
+                                      >
+                                        <EyeOff className="w-2.5 h-2.5 text-amber-400" />
+                                      </span>
+                                    )}
+                                    <span className="truncate">{row.label}:</span>
+                                  </span>
+                                  <span className="text-slate-100 font-semibold font-mono shrink-0">
+                                    {row.value}
+                                  </span>
+                                </div>
+                              ))}
+                            </div>
                           </div>
                         ))}
                       </div>
                     )}
 
                     {/* Internal Operational Data: strictly NEVER rendered in clientViewOnly */}
-                    {!clientViewOnly && (eq.operationalData.internalNotes || eq.operationalData.serialOrRegistrationNo) && (
-                      <div className="bg-amber-950/20 border border-amber-800/30 rounded-lg px-2.5 py-1.5 text-[10px] text-amber-200/90 space-y-0.5">
-                        {eq.operationalData.serialOrRegistrationNo && (
-                          <div>
-                            <span className="text-amber-400 font-semibold">رقم التسجيل الداخلي: </span>
-                            <span className="font-mono">{eq.operationalData.serialOrRegistrationNo}</span>
-                          </div>
-                        )}
-                        {eq.operationalData.internalNotes && (
-                          <div>
-                            <span className="text-amber-400 font-semibold">ملاحظات داخلية (لا تظهر للعميل): </span>
-                            <span>{eq.operationalData.internalNotes}</span>
-                          </div>
-                        )}
-                      </div>
-                    )}
+                    {!clientViewOnly &&
+                      (eq.operationalData.internalNotes ||
+                        eq.operationalData.serialOrRegistrationNo) && (
+                        <div className="bg-amber-950/20 border border-amber-800/30 rounded-lg px-2.5 py-1.5 text-[10px] text-amber-200/90 space-y-0.5">
+                          {eq.operationalData.serialOrRegistrationNo && (
+                            <div>
+                              <span className="text-amber-400 font-semibold">
+                                رقم التسجيل الداخلي:{' '}
+                              </span>
+                              <span className="font-mono">
+                                {eq.operationalData.serialOrRegistrationNo}
+                              </span>
+                            </div>
+                          )}
+                          {eq.operationalData.internalNotes && (
+                            <div>
+                              <span className="text-amber-400 font-semibold">
+                                ملاحظات داخلية (لا تظهر للعميل):{' '}
+                              </span>
+                              <span>{eq.operationalData.internalNotes}</span>
+                            </div>
+                          )}
+                        </div>
+                      )}
                   </div>
                 );
               })}
@@ -1207,8 +1434,8 @@ export const ActivityCardAllProperties: React.FC<ActivityCardAllPropertiesProps>
         );
       })()}
 
-      {/* 7. بيانات المالك وقنوات النشر والإحصائيات */}
-      {showStatsAndChannels && (
+      {/* 7. بيانات المالك وقنوات النشر والإحصائيات (محجوبة في عرض العميل) */}
+      {showStatsAndChannels && !clientViewOnly && (
         <div className="bg-slate-950/60 border border-slate-800/80 rounded-xl p-3 space-y-2 text-[11px]">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/70 pb-2">
             <div className="flex items-center gap-1.5">
@@ -1247,6 +1474,18 @@ export const ActivityCardAllProperties: React.FC<ActivityCardAllPropertiesProps>
               <span className="text-emerald-400 font-bold">€{stats.revenueEUR.toLocaleString()}</span>
             </div>
           </div>
+        </div>
+      )}
+
+      {/* 7B. نسبة عامة مختصرة للشركة المنفذة في عرض العميل (بدون أرقام هواتف أو قنوات أو إيرادات) */}
+      {clientViewOnly && owner.companyName && (
+        <div className="bg-slate-950/40 border border-slate-800/60 rounded-xl px-3 py-2 flex items-center justify-between text-[11px] text-slate-300">
+          <div className="flex items-center gap-1.5">
+            <UserCheck className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+            <span className="text-slate-400">مقدم التجربة:</span>
+            <span className="font-semibold text-white">{owner.companyName}</span>
+          </div>
+          <span className="text-[10px] text-slate-400">{location.city}</span>
         </div>
       )}
     </div>

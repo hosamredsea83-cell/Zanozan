@@ -1,3 +1,5 @@
+import type { AssetPersonCustodyMeta } from './personProfile';
+
 export type EquipmentSpecFieldType = 'text' | 'number' | 'boolean' | 'single_choice' | 'multi_choice';
 
 export type EquipmentStatus = 'available' | 'in_use' | 'maintenance' | 'inactive';
@@ -28,6 +30,8 @@ export interface EquipmentTypeDefinition {
   name: string;
   category: string;
   description?: string;
+  linkedCategoryIds?: string[];
+  excludedCategoryIds?: string[];
   specGroups: EquipmentSpecGroupTemplate[];
   createdAt: string;
   updatedAt: string;
@@ -77,8 +81,20 @@ export interface EquipmentItem {
   ownerCompanyName: string;
   name: string;
   typeId: string; // Links dynamically to EquipmentTypeDefinition.id
+  linkedCategoryIds?: string[];
+  excludedCategoryIds?: string[];
   classification: string;
+  manufacturerId?: string;
+  manufacturerName?: string;
+  modelId?: string;
+  modelName?: string;
   description: string;
+  translations?: {
+    en?: {
+      name: string;
+      description: string;
+    };
+  };
   media: EquipmentMediaItem[];
   operationalData: {
     serialOrRegistrationNo?: string;
@@ -95,9 +111,12 @@ export interface EquipmentItem {
   partnerName?: string;
   partnerCompanyName?: string;
   rentalContractRef?: string;
+  personCustody?: AssetPersonCustodyMeta;
   dynamicSpecs: EquipmentSpecGroupValue[];
   extraData: EquipmentExtraField[];
   showToClientDefault: boolean;
+  linkedActivityIds?: string[];
+  allowGeneralActivityLinking?: boolean;
   createdAt: string;
   updatedAt: string;
   createdById?: string;
@@ -119,6 +138,7 @@ export interface EquipmentCategoryOption {
 
 export interface EquipmentPropertyItem {
   id: string;
+  groupId?: string;
   category: string;
   key: string;
   label: string;
@@ -128,6 +148,9 @@ export interface EquipmentPropertyItem {
   isMandatoryDefault: boolean;
   isPublicDefault: boolean;
   description: string;
+  linkedCategoryIds?: string[];
+  excludedCategoryIds?: string[];
+  linkedUnitKindIds?: string[];
   createdAt: string;
   updatedAt: string;
 }

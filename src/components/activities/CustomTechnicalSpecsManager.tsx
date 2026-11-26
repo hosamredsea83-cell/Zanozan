@@ -14,6 +14,7 @@ import {
   RotateCcw
 } from 'lucide-react';
 import { Activity, CustomTechnicalSpecItem, MetaFieldType } from '../../types/activity';
+import { CATEGORY_COMPATIBILITY_OPTIONS, CategoryDomainTag } from '../../utils/categorySpecsMatcher';
 
 interface CustomTechnicalSpecsManagerProps {
   customSpecs: CustomTechnicalSpecItem[];
@@ -47,6 +48,7 @@ export const CustomTechnicalSpecsManager: React.FC<CustomTechnicalSpecsManagerPr
   const [optionsInput, setOptionsInput] = useState<string>('');
   const [isPublicForClient, setIsPublicForClient] = useState<boolean>(true);
   const [isRequired, setIsRequired] = useState<boolean>(false);
+  const [linkedCategories, setLinkedCategories] = useState<CategoryDomainTag[]>([]);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [feedbackMsg, setFeedbackMsg] = useState<string>('');
 
@@ -88,6 +90,7 @@ export const CustomTechnicalSpecsManager: React.FC<CustomTechnicalSpecsManagerPr
     setOptionsInput('');
     setIsPublicForClient(true);
     setIsRequired(false);
+    setLinkedCategories([]);
   };
 
   const handleStartEdit = (item: CustomTechnicalSpecItem) => {
@@ -104,6 +107,7 @@ export const CustomTechnicalSpecsManager: React.FC<CustomTechnicalSpecsManagerPr
     setOptionsInput((item.options || []).join('، '));
     setIsPublicForClient(item.isPublicForClient);
     setIsRequired(item.isRequired);
+    setLinkedCategories((item.linkedCategories || []) as CategoryDomainTag[]);
   };
 
   const handleSubmitForm = (e: React.FormEvent) => {
@@ -142,7 +146,8 @@ export const CustomTechnicalSpecsManager: React.FC<CustomTechnicalSpecsManagerPr
         : true,
       order: editingId
         ? customSpecs.find((s) => s.id === editingId)?.order ?? customSpecs.length + 1
-        : customSpecs.length + 1
+        : customSpecs.length + 1,
+      linkedCategories: linkedCategories.length > 0 ? linkedCategories : undefined
     };
 
     if (editingId) {
@@ -364,6 +369,39 @@ export const CustomTechnicalSpecsManager: React.FC<CustomTechnicalSpecsManagerPr
                 />
                 <span>خاصية إلزامية</span>
               </label>
+            </div>
+
+            {/* Category Compatibility Tags for Smart Linking */}
+            <div className="space-y-1.5 bg-slate-950 border border-slate-800 rounded-xl p-3">
+              <label className="text-[11px] font-semibold text-cyan-300 block">
+                ربط ذكي مع فئات التصنيف (تظهر تلقائياً عند اختيار التصنيف):
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {CATEGORY_COMPATIBILITY_OPTIONS.map((opt) => {
+                  const checked = linkedCategories.includes(opt.id);
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() =>
+                        setLinkedCategories((prev) =>
+                          prev.includes(opt.id)
+                            ? prev.filter((id) => id !== opt.id)
+                            : [...prev, opt.id]
+                        )
+                      }
+                      className={`px-2 py-1 rounded-lg border text-[10px] font-semibold transition-colors cursor-pointer ${
+                        checked
+                          ? 'bg-cyan-950/70 border-cyan-400 text-cyan-200'
+                          : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      {checked ? '✓ ' : '+ '}
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
             </div>
           </div>
 

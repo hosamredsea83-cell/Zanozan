@@ -3,7 +3,7 @@ import { Wallet, TransferTransaction, FinancialPartyRole } from '../../types/fin
 import { 
   Wallet as WalletIcon, QrCode, ArrowDownRight, ArrowUpLeft, ShieldAlert, 
   CheckCircle2, XCircle, Clock, RefreshCw, AlertTriangle, Smartphone, 
-  Receipt, ArrowRightLeft, Send, Check, X, Search
+  Receipt, ArrowRightLeft, Send, Check, X, Search, Plus
 } from 'lucide-react';
 import {
   RegistryColumnFilterDropdown,
@@ -58,6 +58,15 @@ interface WalletsManagerProps {
   onInitiateTransfer: (transfer: Omit<TransferTransaction, 'id' | 'createdAt' | 'status'>) => void;
   onApproveTransfer: (transferId: string) => void;
   onRejectTransfer: (transferId: string, reason: string) => void;
+  onCreateWallet?: (input: {
+    partyName: string;
+    role: FinancialPartyRole;
+    organization?: string;
+    phone?: string;
+    initialBalanceEUR?: number;
+    creditLimitEUR?: number;
+    minRequiredBalanceEUR?: number;
+  }) => Wallet;
 }
 
 export const WalletsManager: React.FC<WalletsManagerProps> = ({
@@ -65,19 +74,26 @@ export const WalletsManager: React.FC<WalletsManagerProps> = ({
   transfers,
   onInitiateTransfer,
   onApproveTransfer,
-  onRejectTransfer
+  onRejectTransfer,
+  onCreateWallet
 }) => {
   const [selectedWalletId, setSelectedWalletId] = useState<string>(wallets[0]?.id || '');
   const [showQRModal, setShowQRModal] = useState<Wallet | null>(null);
   const [showNewTransferModal, setShowNewTransferModal] = useState(false);
+  const [showCreateWalletModal, setShowCreateWalletModal] = useState(false);
+  const [newWalletName, setNewWalletName] = useState('');
+  const [newWalletRole, setNewWalletRole] = useState<FinancialPartyRole>('driver');
+  const [newWalletOrg, setNewWalletOrg] = useState('');
+  const [newWalletPhone, setNewWalletPhone] = useState('');
+  const [newWalletInitialEUR, setNewWalletInitialEUR] = useState<number>(0);
   const [rejectingTransferId, setRejectingTransferId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState('');
   const [transferSearchQuery, setTransferSearchQuery] = useState('');
   const tableState = useRegistryTableState<TransferColKey>(TRANSFER_COLUMNS);
 
   // Transfer form state
-  const [senderWalletId, setSenderWalletId] = useState(wallets[2]?.id || ''); // delegate default
-  const [recipientWalletId, setRecipientWalletId] = useState(wallets[0]?.id || ''); // company default
+  const [senderWalletId, setSenderWalletId] = useState(wallets[2]?.id || wallets[0]?.id || '');
+  const [recipientWalletId, setRecipientWalletId] = useState(wallets[0]?.id || '');
   const [transferAmount, setTransferAmount] = useState<number>(2000);
   const [transferCurrency, setTransferCurrency] = useState<'EGP' | 'EUR'>('EGP');
   const [transferMethod, setTransferMethod] = useState<'qr_code' | 'company_receipt' | 'vodafone_cash'>('qr_code');
@@ -276,13 +292,25 @@ export const WalletsManager: React.FC<WalletsManagerProps> = ({
             </p>
           </div>
 
-          <button
-            onClick={() => setShowNewTransferModal(true)}
-            className="flex items-center gap-1.5 px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg text-xs font-bold transition-colors shadow-sm"
-          >
-            <Send className="w-3.5 h-3.5" />
-            <span>+ تحويل مالي / توريد عهدة</span>
-          </button>
+          <div className="flex flex-wrap items-center gap-2">
+            {onCreateWallet && (
+              <button
+                type="button"
+                onClick={() => setShowCreateWalletModal(true)}
+                className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-950 hover:bg-slate-800 border border-slate-700 text-emerald-300 rounded-lg text-xs font-bold transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>+ إنشاء محفظة جديدة</span>
+              </button>
+            )}
+            <button
+              onClick={() => setShowNewTransferModal(true)}
+              className="flex items-center gap-1.5 px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg text-xs font-bold transition-colors shadow-sm whitespace-nowrap shrink-0 cursor-pointer"
+            >
+              <Send className="w-3.5 h-3.5" />
+              <span>+ تحويل مالي / توريد عهدة</span>
+            </button>
+          </div>
         </div>
 
         {/* Horizontal Wallets Carousel / Grid */}
@@ -900,6 +928,119 @@ export const WalletsManager: React.FC<WalletsManagerProps> = ({
               </button>
             </div>
           </div>
+        </div>
+      )}
+      {/* Modal: Create Manual Wallet */}
+      {showCreateWalletModal && onCreateWallet && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-fade-in">
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!newWalletName.trim()) return;
+              const created = onCreateWallet({
+                partyName: newWalletName.trim(),
+                role: newWalletRole,
+                organization: newWalletOrg.trim() || undefined,
+                phone: newWalletPhone.trim() || undefined,
+                initialBalanceEUR: newWalletInitialEUR
+              });
+              setSelectedWalletId(created.id);
+              setNewWalletName('');
+              setNewWalletOrg('');
+              setNewWalletPhone('');
+              setNewWalletInitialEUR(0);
+              setShowCreateWalletModal(false);
+            }}
+            className="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 space-y-4 text-xs"
+          >
+            <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+              <h3 className="font-bold text-sm text-white">إنشاء محفظة مالية جديدة</h3>
+              <button
+                type="button"
+                onClick={() => setShowCreateWalletModal(false)}
+                className="text-slate-400 hover:text-white"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <div>
+                <label className="text-slate-400 block mb-1">اسم صاحب المحفظة *</label>
+                <input
+                  type="text"
+                  required
+                  value={newWalletName}
+                  onChange={(e) => setNewWalletName(e.target.value)}
+                  placeholder="مثال: سائق / مرشد / مندوب..."
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white"
+                />
+              </div>
+              <div>
+                <label className="text-slate-400 block mb-1">الدور المالي</label>
+                <select
+                  value={newWalletRole}
+                  onChange={(e) => setNewWalletRole(e.target.value as FinancialPartyRole)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-slate-200"
+                >
+                  <option value="driver">سائق نقل سياحي</option>
+                  <option value="tour_guide">مرشد / مرافق سياحي</option>
+                  <option value="delegate">مندوب مبيعات</option>
+                  <option value="operator">صاحب معدة / منفذ</option>
+                  <option value="employee">موظف تشغيل</option>
+                  <option value="activity_owner">صاحب نشاط</option>
+                  <option value="company">شركة سياحية</option>
+                </select>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="text-slate-400 block mb-1">الجهة / الشركة</label>
+                  <input
+                    type="text"
+                    value={newWalletOrg}
+                    onChange={(e) => setNewWalletOrg(e.target.value)}
+                    placeholder="منصة ZanoZa"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white"
+                  />
+                </div>
+                <div>
+                  <label className="text-slate-400 block mb-1">رقم الهاتف</label>
+                  <input
+                    type="text"
+                    value={newWalletPhone}
+                    onChange={(e) => setNewWalletPhone(e.target.value)}
+                    placeholder="+2010..."
+                    className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white font-mono"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-slate-400 block mb-1">رصيد افتتاحي (€)</label>
+                <input
+                  type="number"
+                  value={newWalletInitialEUR}
+                  onChange={(e) => setNewWalletInitialEUR(parseFloat(e.target.value) || 0)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-lg p-2 text-white font-mono"
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 pt-2 border-t border-slate-800">
+              <button
+                type="button"
+                onClick={() => setShowCreateWalletModal(false)}
+                className="px-3 py-1.5 bg-slate-800 text-slate-300 rounded-lg"
+              >
+                إلغاء
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold rounded-lg"
+              >
+                حفظ المحفظة
+              </button>
+            </div>
+          </form>
         </div>
       )}
     </div>

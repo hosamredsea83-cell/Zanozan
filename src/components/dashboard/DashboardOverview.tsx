@@ -379,18 +379,18 @@ export const DashboardOverview: React.FC<DashboardOverviewProps> = ({
                 <span>سجل المعدات</span>
               </button>
               <button
-                onClick={() => onNavigate('activity_meta_library')}
+                onClick={() => onNavigate('unified_reference')}
                 className="p-2 rounded-lg bg-slate-950 hover:bg-slate-800 text-cyan-400 border border-slate-800 text-center transition-colors flex items-center justify-center gap-1 cursor-pointer"
               >
                 <Layers className="w-3.5 h-3.5" />
-                <span>خصائص المعدات</span>
+                <span>المرجع الموحد</span>
               </button>
               <button
-                onClick={() => onNavigate('activity_equipment_types')}
+                onClick={() => onNavigate('unified_reference')}
                 className="p-2 rounded-lg bg-slate-950 hover:bg-slate-800 text-emerald-300 border border-slate-800 text-center transition-colors flex items-center justify-center gap-1 cursor-pointer"
               >
                 <SlidersHorizontal className="w-3.5 h-3.5" />
-                <span>أنواع المعدات</span>
+                <span>أنواع المعدات والخصائص</span>
               </button>
               <button
                 onClick={() => onNavigate('activity_equipment_partners')}

@@ -1,18 +1,309 @@
 @import "tailwindcss";
 
+:root {
+  --zanoza-font: 'Tajawal', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --zanoza-accent: #0891b2;
+  --zanoza-accent-hover: #06b6d4;
+  --zanoza-accent-soft: rgba(6, 182, 212, 0.16);
+  --zanoza-accent-text: #67e8f9;
+  --zanoza-accent-border: rgba(6, 182, 212, 0.35);
+}
+
 @layer base {
+  html,
   body {
-    font-family: 'Tajawal', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-family: var(--zanoza-font);
   }
 }
 
 .font-tajawal {
-  font-family: 'Tajawal', sans-serif;
+  font-family: var(--zanoza-font);
 }
 
 .font-mono {
   font-family: 'JetBrains Mono', monospace;
   font-variant-numeric: tabular-nums;
+}
+
+/* Font Scale Modes */
+html[data-zanoza-scale='compact'] {
+  font-size: 14.5px;
+}
+
+html[data-zanoza-scale='standard'] {
+  font-size: 16px;
+}
+
+html[data-zanoza-scale='comfortable'] {
+  font-size: 17.5px;
+}
+
+/* Radius Modes */
+[data-zanoza-radius='sharp'] .rounded-2xl {
+  border-radius: 0.45rem;
+}
+[data-zanoza-radius='sharp'] .rounded-xl {
+  border-radius: 0.3rem;
+}
+[data-zanoza-radius='rounded'] .rounded-2xl {
+  border-radius: 1.45rem;
+}
+[data-zanoza-radius='rounded'] .rounded-xl {
+  border-radius: 1rem;
+}
+
+/* Accent Palette Overrides */
+[data-zanoza-accent='emerald'] {
+  --zanoza-accent: #059669;
+  --zanoza-accent-hover: #10b981;
+  --zanoza-accent-soft: rgba(16, 185, 129, 0.16);
+  --zanoza-accent-text: #6ee7b7;
+  --zanoza-accent-border: rgba(16, 185, 129, 0.35);
+}
+[data-zanoza-accent='amber'] {
+  --zanoza-accent: #d97706;
+  --zanoza-accent-hover: #f59e0b;
+  --zanoza-accent-soft: rgba(245, 158, 11, 0.16);
+  --zanoza-accent-text: #fcd34d;
+  --zanoza-accent-border: rgba(245, 158, 11, 0.35);
+}
+[data-zanoza-accent='violet'] {
+  --zanoza-accent: #7c3aed;
+  --zanoza-accent-hover: #8b5cf6;
+  --zanoza-accent-soft: rgba(139, 92, 246, 0.16);
+  --zanoza-accent-text: #c4b5fd;
+  --zanoza-accent-border: rgba(139, 92, 246, 0.35);
+}
+[data-zanoza-accent='rose'] {
+  --zanoza-accent: #e11d48;
+  --zanoza-accent-hover: #f43f5e;
+  --zanoza-accent-soft: rgba(244, 63, 94, 0.16);
+  --zanoza-accent-text: #fda4af;
+  --zanoza-accent-border: rgba(244, 63, 94, 0.35);
+}
+[data-zanoza-accent='e_and_red'] {
+  --zanoza-accent: #e00800;
+  --zanoza-accent-hover: #c40700;
+  --zanoza-accent-soft: rgba(224, 8, 0, 0.12);
+  --zanoza-accent-text: #e00800;
+  --zanoza-accent-border: rgba(224, 8, 0, 0.35);
+}
+
+[data-zanoza-accent]:not([data-zanoza-accent='cyan']) .bg-cyan-600 {
+  background-color: var(--zanoza-accent);
+}
+[data-zanoza-accent]:not([data-zanoza-accent='cyan']) .hover\:bg-cyan-500:hover {
+  background-color: var(--zanoza-accent-hover);
+}
+[data-zanoza-accent]:not([data-zanoza-accent='cyan']) .bg-cyan-600\/20,
+[data-zanoza-accent]:not([data-zanoza-accent='cyan']) .bg-cyan-500\/15 {
+  background-color: var(--zanoza-accent-soft);
+}
+[data-zanoza-accent]:not([data-zanoza-accent='cyan']) .text-cyan-400,
+[data-zanoza-accent]:not([data-zanoza-accent='cyan']) .text-cyan-300 {
+  color: var(--zanoza-accent-text);
+}
+[data-zanoza-accent]:not([data-zanoza-accent='cyan']) .border-cyan-500\/30,
+[data-zanoza-accent]:not([data-zanoza-accent='cyan']) .border-cyan-500\/20,
+[data-zanoza-accent]:not([data-zanoza-accent='cyan']) .border-cyan-500\/40 {
+  border-color: var(--zanoza-accent-border);
+}
+
+/* Template Themes */
+[data-zanoza-template='coastal_compact'] {
+  background-color: #06131f;
+}
+[data-zanoza-template='coastal_compact'] .bg-slate-950,
+[data-zanoza-template='coastal_compact'] .bg-slate-950\/90,
+[data-zanoza-template='coastal_compact'] .bg-slate-950\/80 {
+  background-color: #06131f;
+}
+[data-zanoza-template='coastal_compact'] .bg-slate-900 {
+  background-color: #0b2033;
+}
+[data-zanoza-template='coastal_compact'] .border-slate-800 {
+  border-color: #163854;
+}
+
+[data-zanoza-template='resort_modern'] {
+  background-color: #0d0f17;
+}
+[data-zanoza-template='resort_modern'] .bg-slate-950,
+[data-zanoza-template='resort_modern'] .bg-slate-950\/90,
+[data-zanoza-template='resort_modern'] .bg-slate-950\/80 {
+  background-color: #0d0f17;
+}
+[data-zanoza-template='resort_modern'] .bg-slate-900 {
+  background-color: #161a26;
+}
+[data-zanoza-template='resort_modern'] .border-slate-800 {
+  border-color: #283044;
+}
+
+[data-zanoza-template='luxury_light'] {
+  background-color: #f1f5f9;
+  color: #0f172a;
+}
+[data-zanoza-template='luxury_light'] .bg-slate-950,
+[data-zanoza-template='luxury_light'] .bg-slate-950\/90,
+[data-zanoza-template='luxury_light'] .bg-slate-950\/80,
+[data-zanoza-template='luxury_light'] .bg-slate-950\/70,
+[data-zanoza-template='luxury_light'] .bg-slate-950\/60 {
+  background-color: #f8fafc;
+}
+[data-zanoza-template='luxury_light'] .bg-slate-900,
+[data-zanoza-template='luxury_light'] .bg-slate-900\/90,
+[data-zanoza-template='luxury_light'] .bg-slate-900\/80,
+[data-zanoza-template='luxury_light'] .bg-slate-900\/60 {
+  background-color: #ffffff;
+}
+[data-zanoza-template='luxury_light'] .bg-slate-800 {
+  background-color: #e2e8f0;
+}
+[data-zanoza-template='luxury_light'] .border-slate-800,
+[data-zanoza-template='luxury_light'] .border-slate-800\/80,
+[data-zanoza-template='luxury_light'] .border-slate-700,
+[data-zanoza-template='luxury_light'] .border-slate-700\/80 {
+  border-color: #cbd5e1;
+}
+[data-zanoza-template='luxury_light'] .text-white,
+[data-zanoza-template='luxury_light'] .text-slate-100,
+[data-zanoza-template='luxury_light'] .text-slate-200 {
+  color: #0f172a;
+}
+[data-zanoza-template='luxury_light'] .text-slate-300,
+[data-zanoza-template='luxury_light'] .text-slate-400 {
+  color: #475569;
+}
+[data-zanoza-template='luxury_light'] .bg-cyan-600,
+[data-zanoza-template='luxury_light'] .bg-cyan-600 *,
+[data-zanoza-template='luxury_light'] .bg-emerald-600,
+[data-zanoza-template='luxury_light'] .bg-emerald-600 *,
+[data-zanoza-template='luxury_light'] .bg-rose-600,
+[data-zanoza-template='luxury_light'] .bg-rose-600 *,
+[data-zanoza-template='luxury_light'] .bg-rose-500,
+[data-zanoza-template='luxury_light'] .bg-rose-500 * {
+  color: #ffffff;
+}
+[data-zanoza-template='luxury_light'][data-zanoza-accent='cyan'] .text-cyan-400,
+[data-zanoza-template='luxury_light'][data-zanoza-accent='cyan'] .text-cyan-300 {
+  color: #0e7490;
+}
+[data-zanoza-template='luxury_light'][data-zanoza-accent='emerald'] .text-cyan-400,
+[data-zanoza-template='luxury_light'][data-zanoza-accent='emerald'] .text-cyan-300 {
+  color: #047857;
+}
+[data-zanoza-template='luxury_light'][data-zanoza-accent='amber'] .text-cyan-400,
+[data-zanoza-template='luxury_light'][data-zanoza-accent='amber'] .text-cyan-300 {
+  color: #b45309;
+}
+[data-zanoza-template='luxury_light'][data-zanoza-accent='violet'] .text-cyan-400,
+[data-zanoza-template='luxury_light'][data-zanoza-accent='violet'] .text-cyan-300 {
+  color: #6d28d9;
+}
+[data-zanoza-template='luxury_light'][data-zanoza-accent='rose'] .text-cyan-400,
+[data-zanoza-template='luxury_light'][data-zanoza-accent='rose'] .text-cyan-300 {
+  color: #be123c;
+}
+[data-zanoza-template='luxury_light'][data-zanoza-accent='e_and_red'] .text-cyan-400,
+[data-zanoza-template='luxury_light'][data-zanoza-accent='e_and_red'] .text-cyan-300 {
+  color: #e00800;
+}
+
+/* My e& (Etisalat) Brand Template — Crisp White Cards, Soft Neutral Canvas & Signature e& Crimson Red */
+[data-zanoza-template='my_eand'] {
+  background-color: #f4f5f7;
+  color: #111317;
+}
+[data-zanoza-template='my_eand'] .bg-slate-950,
+[data-zanoza-template='my_eand'] .bg-slate-950\/90,
+[data-zanoza-template='my_eand'] .bg-slate-950\/80,
+[data-zanoza-template='my_eand'] .bg-slate-950\/70,
+[data-zanoza-template='my_eand'] .bg-slate-950\/60 {
+  background-color: #f4f5f7;
+}
+[data-zanoza-template='my_eand'] aside.bg-slate-950 {
+  background-color: #ffffff;
+  box-shadow: -4px 0 24px rgba(17, 19, 23, 0.05);
+}
+[data-zanoza-template='my_eand'] header.bg-slate-950\/90 {
+  background-color: rgba(255, 255, 255, 0.94);
+  border-bottom: 1px solid #e5e7eb;
+}
+[data-zanoza-template='my_eand'] .bg-slate-900,
+[data-zanoza-template='my_eand'] .bg-slate-900\/90,
+[data-zanoza-template='my_eand'] .bg-slate-900\/80,
+[data-zanoza-template='my_eand'] .bg-slate-900\/60 {
+  background-color: #ffffff;
+  box-shadow: 0 2px 10px rgba(17, 19, 23, 0.03);
+}
+[data-zanoza-template='my_eand'] .bg-slate-800 {
+  background-color: #f1f2f5;
+}
+[data-zanoza-template='my_eand'] .border-slate-800,
+[data-zanoza-template='my_eand'] .border-slate-800\/80,
+[data-zanoza-template='my_eand'] .border-slate-700,
+[data-zanoza-template='my_eand'] .border-slate-700\/80 {
+  border-color: #e4e6eb;
+}
+[data-zanoza-template='my_eand'] .text-white,
+[data-zanoza-template='my_eand'] .text-slate-100,
+[data-zanoza-template='my_eand'] .text-slate-200 {
+  color: #111317;
+}
+[data-zanoza-template='my_eand'] .text-slate-300,
+[data-zanoza-template='my_eand'] .text-slate-400 {
+  color: #525866;
+}
+[data-zanoza-template='my_eand'] .text-cyan-400,
+[data-zanoza-template='my_eand'] .text-cyan-300 {
+  color: #e00800;
+}
+[data-zanoza-template='my_eand'] .bg-cyan-950,
+[data-zanoza-template='my_eand'] .bg-cyan-950\/70,
+[data-zanoza-template='my_eand'] .bg-cyan-950\/50,
+[data-zanoza-template='my_eand'] .bg-cyan-950\/35,
+[data-zanoza-template='my_eand'] .bg-cyan-950\/20 {
+  background-color: rgba(224, 8, 0, 0.08);
+}
+[data-zanoza-template='my_eand'] .border-cyan-800\/40,
+[data-zanoza-template='my_eand'] .border-cyan-800\/50,
+[data-zanoza-template='my_eand'] .border-cyan-900\/30 {
+  border-color: rgba(224, 8, 0, 0.25);
+}
+[data-zanoza-template='my_eand'] .bg-cyan-600,
+[data-zanoza-template='my_eand'] .bg-cyan-600 *,
+[data-zanoza-template='my_eand'] .bg-emerald-600,
+[data-zanoza-template='my_eand'] .bg-emerald-600 *,
+[data-zanoza-template='my_eand'] .bg-rose-600,
+[data-zanoza-template='my_eand'] .bg-rose-600 *,
+[data-zanoza-template='my_eand'] .bg-rose-500,
+[data-zanoza-template='my_eand'] .bg-rose-500 * {
+  color: #ffffff;
+}
+[data-zanoza-template='my_eand'] .hover\:bg-slate-900:hover,
+[data-zanoza-template='my_eand'] .hover\:bg-slate-800:hover {
+  background-color: #f3f4f6;
+}
+[data-zanoza-template='my_eand'][data-zanoza-accent='emerald'] .text-cyan-400,
+[data-zanoza-template='my_eand'][data-zanoza-accent='emerald'] .text-cyan-300 {
+  color: #047857;
+}
+[data-zanoza-template='my_eand'][data-zanoza-accent='cyan'] .text-cyan-400,
+[data-zanoza-template='my_eand'][data-zanoza-accent='cyan'] .text-cyan-300 {
+  color: #0e7490;
+}
+[data-zanoza-template='my_eand'][data-zanoza-accent='amber'] .text-cyan-400,
+[data-zanoza-template='my_eand'][data-zanoza-accent='amber'] .text-cyan-300 {
+  color: #b45309;
+}
+[data-zanoza-template='my_eand'][data-zanoza-accent='violet'] .text-cyan-400,
+[data-zanoza-template='my_eand'][data-zanoza-accent='violet'] .text-cyan-300 {
+  color: #6d28d9;
+}
+[data-zanoza-template='my_eand'][data-zanoza-accent='e_and_red'] .text-cyan-400,
+[data-zanoza-template='my_eand'][data-zanoza-accent='e_and_red'] .text-cyan-300 {
+  color: #e00800;
 }
 
 /* Custom scrollbars for high-density tables */

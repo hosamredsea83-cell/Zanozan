@@ -8,6 +8,7 @@ import {
   createLocalCategoryRecord,
   deleteLocalCategoryRecord,
   getLocalCategoriesSnapshot,
+  resetAndReseedLocalCategoriesDb,
   syncLocalCategoryActivityCounts,
   updateLocalCategoryRecord
 } from '../db/localCategoriesDb';
@@ -176,12 +177,29 @@ export function useCategoriesStore(
     });
   };
 
+  const handleResetCategories = async () => {
+    const result = await resetAndReseedLocalCategoriesDb();
+    setCategoryTree(result.tree);
+    setCategoryRecords(result.records);
+    if (currentUser) {
+      onAuditLog?.({
+        actor: currentUser,
+        action: 'update',
+        domain: 'category',
+        entityId: 'categories-tree',
+        entityName: 'شجرة الفئات والتصنيفات',
+        summary: `أعاد ${currentUser.name} تهيئة شجرة الفئات الأساسية الأربعة بالمرجع الموحد`
+      });
+    }
+  };
+
   return {
     categoryTree,
     categoryRecords,
     handleCreateCategoryRecord,
     handleUpdateCategoryRecord,
     handleDeleteCategoryRecord,
-    handleAddCategoryToTree
+    handleAddCategoryToTree,
+    handleResetCategories
   };
 }

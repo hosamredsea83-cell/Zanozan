@@ -5,9 +5,18 @@ import type {
   EquipmentStatus,
   EquipmentTypeDefinition
 } from '../../types/equipment';
-import type { Activity } from '../../types/activity';
+import type { Activity, CategoryRecord } from '../../types/activity';
 import type { AppUser } from '../../types/auth';
 import type { PartnerRecord } from '../../types/partner';
+import type { PersonProfile } from '../../types/personProfile';
+import type {
+  AssetCatalogScope,
+  EquipmentUnitKindItem,
+  ManufacturerModelRecord,
+  ManufacturerRecord,
+  SpecGroupRecord
+} from '../../types/masterReference';
+import { equipmentBelongsToEditableUser } from '../../utils/assetCustodyHelpers';
 import { buildDynamicSpecsFromType } from './equipmentHelpers';
 import { CompanyEquipmentTable } from './CompanyEquipmentTable';
 import { EquipmentForm } from './EquipmentForm';
@@ -20,9 +29,11 @@ import { CheckCircle2, Plus, Sliders, Wrench, X } from 'lucide-react';
 interface EquipmentManagementProps {
   equipments: EquipmentItem[];
   equipmentTypes: EquipmentTypeDefinition[];
+  categoryRecords?: CategoryRecord[];
   activities: Activity[];
   currentUser: AppUser;
   partners?: PartnerRecord[];
+  personProfiles?: PersonProfile[];
   onCreatePartner?: (
     payload: Omit<PartnerRecord, 'id' | 'ownerId' | 'createdAt' | 'updatedAt'>
   ) => PartnerRecord;
@@ -31,12 +42,14 @@ interface EquipmentManagementProps {
   onCreateEquipment: (item: EquipmentItem) => void;
   onUpdateEquipment: (item: EquipmentItem) => void;
   onDeleteEquipment: (equipmentId: string) => void;
+  onSyncEquipmentActivities?: (equipmentId: string, linkedActivityIds: string[]) => void;
   onChangeEquipmentStatus: (equipmentId: string, status: EquipmentStatus) => void;
   onSaveEquipmentTypes: (types: EquipmentTypeDefinition[]) => void;
   onOpenActivityInEditor?: (activity: Activity) => void;
   viewMode?: 'registry' | 'manage' | 'create' | 'types_builder' | 'partners';
   onReturnToManage?: () => void;
   equipmentProperties?: EquipmentPropertyItem[];
+  specGroups?: SpecGroupRecord[];
   onNavigateToEquipmentProperties?: () => void;
   onNavigateToPartnersPage?: (draftItem: EquipmentItem, isNew: boolean) => void;
   restoredDraft?: { item: EquipmentItem; isNew: boolean } | null;
@@ -44,33 +57,74 @@ interface EquipmentManagementProps {
   pendingPartnersReturnDraft?: EquipmentItem | null;
   onSelectPartnerForDraft?: (partner: PartnerRecord) => void;
   onReturnToEquipmentDraft?: () => void;
+  preselectedProfileForAsset?: PersonProfile | null;
+  onConsumePreselectedProfile?: () => void;
+  equipmentUnitKinds?: EquipmentUnitKindItem[];
+  manufacturers?: ManufacturerRecord[];
+  manufacturerModels?: ManufacturerModelRecord[];
+  onCreateEquipmentUnitKind?: (input: {
+    name: string;
+    domainScope?: AssetCatalogScope;
+    defaultCategoryId?: string;
+    defaultTypeId?: string;
+    description?: string;
+  }) => EquipmentUnitKindItem;
+  onCreateManufacturer?: (input: {
+    name: string;
+    applicableTo?: AssetCatalogScope;
+    linkedUnitKindIds?: string[];
+  }) => ManufacturerRecord;
+  onCreateManufacturerModel?: (input: {
+    manufacturerId: string;
+    name: string;
+    applicableTo?: AssetCatalogScope;
+    unitKindId?: string;
+  }) => ManufacturerModelRecord;
+  onAddNewActivityForEquipment?: (
+    draftItem: EquipmentItem,
+    isNew: boolean,
+    presetCategoryPath: string[]
+  ) => void;
 }
 
 export const EquipmentManagement: React.FC<EquipmentManagementProps> = ({
   equipments,
   equipmentTypes,
+  categoryRecords = [],
   activities,
   currentUser,
   partners = [],
+  personProfiles = [],
   onCreatePartner,
   onUpdatePartner,
   onDeletePartner,
   onCreateEquipment,
   onUpdateEquipment,
   onDeleteEquipment,
+  onSyncEquipmentActivities,
   onChangeEquipmentStatus,
   onSaveEquipmentTypes,
   onOpenActivityInEditor,
   viewMode = 'registry',
   onReturnToManage,
   equipmentProperties = [],
+  specGroups = [],
   onNavigateToEquipmentProperties,
   onNavigateToPartnersPage,
   restoredDraft,
   onConsumeRestoredDraft,
   pendingPartnersReturnDraft,
   onSelectPartnerForDraft,
-  onReturnToEquipmentDraft
+  onReturnToEquipmentDraft,
+  preselectedProfileForAsset,
+  onConsumePreselectedProfile,
+  equipmentUnitKinds = [],
+  manufacturers = [],
+  manufacturerModels = [],
+  onCreateEquipmentUnitKind,
+  onCreateManufacturer,
+  onCreateManufacturerModel,
+  onAddNewActivityForEquipment
 }) => {
   const activeTab =
     viewMode === 'types_builder'
@@ -88,6 +142,7 @@ export const EquipmentManagement: React.FC<EquipmentManagementProps> = ({
   const [isNewMode, setIsNewMode] = useState(false);
   const [inspectEquipment, setInspectEquipment] = useState<EquipmentItem | null>(null);
   const [showNewTypeForm, setShowNewTypeForm] = useState(false);
+  const [formValidationError, setFormValidationError] = useState<string | null>(null);
 
   const [toastMsg, setToastMsg] = useState<string | null>(null);
   const notify = (msg: string) => {
@@ -99,8 +154,8 @@ export const EquipmentManagement: React.FC<EquipmentManagementProps> = ({
     equipmentTypes.find((t) => t.id === typeId)?.name || 'نوع مخصص';
 
   const myEquipments = useMemo(
-    () => equipments.filter((eq) => eq.ownerId === currentUser.id),
-    [equipments, currentUser.id]
+    () => equipments.filter((eq) => equipmentBelongsToEditableUser(eq, currentUser)),
+    [equipments, currentUser]
   );
 
   const visibleEquipments = useMemo(() => {
@@ -110,6 +165,7 @@ export const EquipmentManagement: React.FC<EquipmentManagementProps> = ({
       const matchesSearch =
         !q ||
         eq.name.toLowerCase().includes(q) ||
+        (eq.translations?.en?.name || '').toLowerCase().includes(q) ||
         eq.id.toLowerCase().includes(q) ||
         eq.classification.toLowerCase().includes(q) ||
         eq.description.toLowerCase().includes(q) ||
@@ -120,19 +176,31 @@ export const EquipmentManagement: React.FC<EquipmentManagementProps> = ({
     });
   }, [scopeFilter, myEquipments, equipments, searchQuery, typeFilter, statusFilter, equipmentTypes]);
 
-  const openCreateEquipment = () => {
-    const defaultType = equipmentTypes[0];
+  const openCreateEquipment = (linkedProfile?: PersonProfile | null) => {
     const newId = `EQ-${Date.now().toString().slice(-4)}`;
     const today = new Date().toISOString().split('T')[0];
+    const isSelfProfile =
+      linkedProfile &&
+      linkedProfile.linkedUserId === currentUser.id &&
+      (linkedProfile.subscriptionStatus === 'native_member' ||
+        linkedProfile.subscriptionStatus === 'subscribed_isolated');
+
     const draft: EquipmentItem = {
       id: newId,
       ownerId: currentUser.id,
       ownerName: currentUser.name,
       ownerCompanyName: currentUser.companyName,
       name: '',
-      typeId: defaultType?.id || '',
+      typeId: '',
+      linkedCategoryIds: [],
       classification: '',
       description: '',
+      translations: {
+        en: {
+          name: '',
+          description: ''
+        }
+      },
       media: [
         {
           id: `eq-med-${Date.now()}`,
@@ -152,15 +220,42 @@ export const EquipmentManagement: React.FC<EquipmentManagementProps> = ({
         internalNotes: ''
       },
       status: 'available',
-      ownershipType: 'owned',
-      ownershipDetails: `صاحب النشاط: ${currentUser.name} — ${currentUser.companyName}`,
-      dynamicSpecs: defaultType ? buildDynamicSpecsFromType(defaultType) : [],
+      ownershipType: linkedProfile && !isSelfProfile ? 'partner_shared' : 'owned',
+      partnerId: linkedProfile && !isSelfProfile ? linkedProfile.id : undefined,
+      partnerName: linkedProfile && !isSelfProfile ? linkedProfile.name : undefined,
+      partnerCompanyName:
+        linkedProfile && !isSelfProfile ? linkedProfile.companyName : undefined,
+      personCustody:
+        linkedProfile && !isSelfProfile
+          ? {
+              personProfileId: linkedProfile.id,
+              personName: linkedProfile.name,
+              personStatus:
+                linkedProfile.subscriptionStatus === 'subscribed_isolated'
+                  ? 'subscribed_isolated'
+                  : 'external_pending',
+              addedByUserId: linkedProfile.addedByUserId || currentUser.id,
+              addedByUserName: linkedProfile.addedByUserName || currentUser.name,
+              claimedUserId:
+                linkedProfile.subscriptionStatus === 'subscribed_isolated'
+                  ? linkedProfile.linkedUserId
+                  : undefined
+            }
+          : undefined,
+      ownershipDetails:
+        linkedProfile && !isSelfProfile
+          ? `مشاركة تشغيل مع المورد: ${linkedProfile.name} — ${linkedProfile.companyName}`
+          : `صاحب النشاط: ${currentUser.name} — ${currentUser.companyName}`,
+      dynamicSpecs: [],
       extraData: [],
       showToClientDefault: true,
+      linkedActivityIds: [],
+      allowGeneralActivityLinking: false,
       createdAt: today,
       updatedAt: today
     };
     setIsNewMode(true);
+    setFormValidationError(null);
     setEditingEquipment(draft);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -174,20 +269,34 @@ export const EquipmentManagement: React.FC<EquipmentManagementProps> = ({
       return;
     }
     if (viewMode === 'create') {
-      openCreateEquipment();
+      openCreateEquipment(preselectedProfileForAsset);
+      if (preselectedProfileForAsset) {
+        onConsumePreselectedProfile?.();
+      }
     } else if (viewMode === 'registry' || viewMode === 'manage' || viewMode === 'partners') {
       setEditingEquipment(null);
     }
-  }, [viewMode, currentUser.id]);
+  }, [viewMode, currentUser.id, preselectedProfileForAsset]);
 
   const openEditEquipment = (eq: EquipmentItem) => {
     const typeDef = equipmentTypes.find((t) => t.id === eq.typeId);
     const syncedSpecs = typeDef
       ? buildDynamicSpecsFromType(typeDef, eq.dynamicSpecs)
       : eq.dynamicSpecs;
+    const existingLinkedIds = activities
+      .filter((act) => (act.equipmentIds || []).includes(eq.id))
+      .map((act) => act.id);
     setIsNewMode(false);
     setEditingEquipment({
       ...eq,
+      linkedActivityIds: existingLinkedIds,
+      allowGeneralActivityLinking: Boolean(eq.allowGeneralActivityLinking),
+      translations: {
+        en: {
+          name: eq.translations?.en?.name || '',
+          description: eq.translations?.en?.description || ''
+        }
+      },
       dynamicSpecs: syncedSpecs
     });
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -209,6 +318,18 @@ export const EquipmentManagement: React.FC<EquipmentManagementProps> = ({
     e.preventDefault();
     if (!editingEquipment || !editingEquipment.name.trim()) return;
 
+    if (
+      categoryRecords.length > 0 &&
+      (!editingEquipment.linkedCategoryIds || editingEquipment.linkedCategoryIds.length === 0)
+    ) {
+      setFormValidationError(
+        'لابد من اختيار فئة واحدة على الأقل من قائمة البحث لربط المعدة بها، حتى تظهر تلقائياً عند إنشاء نشاط جديد.'
+      );
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      return;
+    }
+
+    setFormValidationError(null);
     const updatedItem: EquipmentItem = {
       ...editingEquipment,
       updatedAt: new Date().toISOString().split('T')[0]
@@ -216,9 +337,11 @@ export const EquipmentManagement: React.FC<EquipmentManagementProps> = ({
 
     if (isNewMode) {
       onCreateEquipment(updatedItem);
+      onSyncEquipmentActivities?.(updatedItem.id, updatedItem.linkedActivityIds || []);
       notify(`✓ تم إنشاء ملف المعدة المستقل "${updatedItem.name}" برقم ${updatedItem.id}`);
     } else {
       onUpdateEquipment(updatedItem);
+      onSyncEquipmentActivities?.(updatedItem.id, updatedItem.linkedActivityIds || []);
       notify(
         `✓ تم حفظ تعديلات المعدة "${updatedItem.name}" ومزامنتها مع كافة الأنشطة المرتبطة`
       );
@@ -230,6 +353,7 @@ export const EquipmentManagement: React.FC<EquipmentManagementProps> = ({
   };
 
   const handleCancelForm = () => {
+    setFormValidationError(null);
     setEditingEquipment(null);
     if (viewMode === 'create' && onReturnToManage) {
       onReturnToManage();
@@ -305,7 +429,7 @@ export const EquipmentManagement: React.FC<EquipmentManagementProps> = ({
             ) : (
               <button
                 type="button"
-                onClick={openCreateEquipment}
+                onClick={() => openCreateEquipment()}
                 className="flex items-center gap-1.5 px-4 py-2 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl text-xs font-bold transition-colors shadow-sm cursor-pointer"
               >
                 <Plus className="w-4 h-4" />
@@ -356,15 +480,35 @@ export const EquipmentManagement: React.FC<EquipmentManagementProps> = ({
           editingEquipment={editingEquipment}
           setEditingEquipment={setEditingEquipment}
           isNewMode={isNewMode}
+          activities={activities}
           equipmentTypes={equipmentTypes}
+          equipmentProperties={equipmentProperties}
+          specGroups={specGroups}
+          categoryRecords={categoryRecords}
+          categoryValidationError={formValidationError}
+          onClearCategoryValidationError={() => setFormValidationError(null)}
+          onNavigateToEquipmentProperties={onNavigateToEquipmentProperties}
           currentUser={currentUser}
           partners={partners}
+          personProfiles={personProfiles}
           onOpenPartnersRegistry={() => {
             if (editingEquipment && onNavigateToPartnersPage) {
               onNavigateToPartnersPage(editingEquipment, isNewMode);
             }
           }}
           onEquipmentTypeChange={handleEquipmentTypeChange}
+          equipmentUnitKinds={equipmentUnitKinds}
+          manufacturers={manufacturers}
+          manufacturerModels={manufacturerModels}
+          onCreateEquipmentUnitKind={onCreateEquipmentUnitKind}
+          onCreateManufacturer={onCreateManufacturer}
+          onCreateManufacturerModel={onCreateManufacturerModel}
+          onAddNewActivityFromForm={
+            onAddNewActivityForEquipment && editingEquipment
+              ? (presetCategoryPath) =>
+                  onAddNewActivityForEquipment(editingEquipment, isNewMode, presetCategoryPath)
+              : undefined
+          }
           onSubmit={handleSaveEquipmentForm}
           onCancel={handleCancelForm}
         />
@@ -374,13 +518,13 @@ export const EquipmentManagement: React.FC<EquipmentManagementProps> = ({
           equipmentTypes={equipmentTypes}
           activities={activities}
           currentUser={currentUser}
-          onAddEquipment={openCreateEquipment}
           onEditEquipment={openEditEquipment}
           onDeleteEquipment={(eqId, eqName) => {
             onDeleteEquipment(eqId);
             notify(`تم حذف المعدة "${eqName}" وفك ارتباطها من سجل الشركة`);
           }}
           onInspectEquipment={(eq) => setInspectEquipment(eq)}
+          onAddEquipment={() => openCreateEquipment()}
         />
       ) : activeTab === 'registry' ? (
         <EquipmentCardsRegistry
@@ -398,7 +542,7 @@ export const EquipmentManagement: React.FC<EquipmentManagementProps> = ({
           setStatusFilter={setStatusFilter}
           searchQuery={searchQuery}
           setSearchQuery={setSearchQuery}
-          onCreateEquipment={openCreateEquipment}
+          onCreateEquipment={() => openCreateEquipment()}
           onEditEquipment={openEditEquipment}
           onDeleteEquipment={(eqId, eqName) => {
             onDeleteEquipment(eqId);

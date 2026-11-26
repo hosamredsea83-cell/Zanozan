@@ -105,8 +105,15 @@ export function useAuditLogStore() {
     setAuditLogs((prev) => [entry, ...prev].slice(0, MAX_AUDIT_LOG_ENTRIES));
   };
 
+  const deleteAuditLogs = (ids: string[]) => {
+    if (ids.length === 0) return;
+    const idSet = new Set(ids);
+    setAuditLogs((prev) => prev.filter((entry) => !idSet.has(entry.id)));
+  };
+
   return {
     auditLogs,
-    logAuditEvent
+    logAuditEvent,
+    deleteAuditLogs
   };
 }

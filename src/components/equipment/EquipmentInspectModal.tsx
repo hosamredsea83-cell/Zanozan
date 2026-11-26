@@ -21,7 +21,14 @@ export const EquipmentInspectModal: React.FC<EquipmentInspectModalProps> = ({
             <span className="text-[11px] text-cyan-400 font-mono">
               {equipment.id} · معاينة ملف المعدة
             </span>
-            <h3 className="text-base font-bold text-white">{equipment.name}</h3>
+            <h3 className="text-base font-bold text-white">
+              {equipment.name}
+              {equipment.translations?.en?.name && (
+                <span dir="ltr" className="text-xs font-normal text-slate-400 mr-2">
+                  ({equipment.translations.en.name})
+                </span>
+              )}
+            </h3>
           </div>
           <button
             type="button"
@@ -43,7 +50,12 @@ export const EquipmentInspectModal: React.FC<EquipmentInspectModalProps> = ({
             </p>
           ) : (
             <div className="space-y-2">
-              <p className="text-slate-300">{equipment.description}</p>
+              {equipment.description && <p className="text-slate-300">{equipment.description}</p>}
+              {equipment.translations?.en?.description && (
+                <p dir="ltr" className="text-slate-400 text-[11px]">
+                  {equipment.translations.en.description}
+                </p>
+              )}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {equipment.dynamicSpecs.flatMap((g) =>
                   g.fields
@@ -66,6 +78,17 @@ export const EquipmentInspectModal: React.FC<EquipmentInspectModalProps> = ({
                       </div>
                     ))
                 )}
+                {(equipment.extraData || [])
+                  .filter((ex) => ex.isPublicForClient)
+                  .map((ex) => (
+                    <div
+                      key={ex.id}
+                      className="bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 flex justify-between"
+                    >
+                      <span className="text-slate-400">{ex.label}:</span>
+                      <span className="text-white font-bold font-mono">{ex.value}</span>
+                    </div>
+                  ))}
               </div>
             </div>
           )}
@@ -93,6 +116,13 @@ export const EquipmentInspectModal: React.FC<EquipmentInspectModalProps> = ({
                   </div>
                 ))
             )}
+            {(equipment.extraData || [])
+              .filter((ex) => !ex.isPublicForClient)
+              .map((ex) => (
+                <div key={ex.id}>
+                  • {ex.label}: <span className="font-mono text-amber-200">{ex.value}</span>
+                </div>
+              ))}
           </div>
         </div>
 

@@ -12,14 +12,18 @@ export type AuditDomainType =
   | 'equipment_property'
   | 'partner'
   | 'activity'
+  | 'trip'
   | 'collection'
   | 'category'
   | 'logistics'
   | 'trip_combo'
   | 'booking'
   | 'finance'
+  | 'operational_cost'
   | 'pricing'
-  | 'favorites';
+  | 'favorites'
+  | 'addon'
+  | 'theme';
 
 export interface EntityAuditTrail {
   createdById?: string;
@@ -95,14 +99,18 @@ export const AUDIT_DOMAIN_META: Record<
   equipment_property: { label: 'خصائص المعدات', group: 'equipment' },
   partner: { label: 'الشركاء', group: 'equipment' },
   activity: { label: 'الأنشطة', group: 'activity' },
+  trip: { label: 'الرحلات', group: 'trips_bookings' },
   collection: { label: 'المجموعات والباقات', group: 'activity' },
   category: { label: 'التصنيفات', group: 'activity' },
   logistics: { label: 'وسائل النقل (اللوجستيات)', group: 'logistics' },
   trip_combo: { label: 'الرحلات المجمعة', group: 'trips_bookings' },
   booking: { label: 'الحجوزات', group: 'trips_bookings' },
   finance: { label: 'المعاملات المالية والمحافظ', group: 'finance_pricing' },
+  operational_cost: { label: 'التكلفة التشغيلية', group: 'finance_pricing' },
   pricing: { label: 'أداة التسعير والخصائص', group: 'finance_pricing' },
-  favorites: { label: 'المفضلة والملفات', group: 'favorites' }
+  favorites: { label: 'المفضلة والملفات', group: 'favorites' },
+  addon: { label: 'مكتبة الإضافات الاختيارية', group: 'activity' },
+  theme: { label: 'تصميم القوالب والألوان والخطوط', group: 'activity' }
 };
 
 export function formatAuditTimestamp(date: Date = new Date()): {

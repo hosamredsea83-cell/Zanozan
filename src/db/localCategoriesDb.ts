@@ -74,270 +74,108 @@ interface SeedCategoryInput {
   children?: SeedCategoryInput[];
 }
 
-const SEED_CATEGORIES: SeedCategoryInput[] = [
+export const SEED_CATEGORIES: SeedCategoryInput[] = [
   {
-    id: 'cat-tour',
-    name: 'الأنشطة السياحية',
-    handle: 'tour-activities',
-    description: 'التصنيف الرئيسي لجميع الأنشطة والرحلات السياحية في المنصة',
+    id: 'cat-marine',
+    name: 'الأنشطة البحرية واليخوت',
+    handle: 'marine-and-yachts',
+    description: 'الركيزة الرئيسية لرحلات اليخوت الخاصة والمشتركة والقوارب السريعة في البحر الأحمر',
     children: [
       {
-        id: 'cat-marine',
-        name: 'الأنشطة البحرية',
-        handle: 'marine-activities',
-        description: 'رحلات البحر الأحمر واليخوت والغوص والجزر البحرية',
-        children: [
-          {
-            id: 'cat-yacht',
-            name: 'رحلات اليخوت',
-            handle: 'yacht-trips',
-            description: 'تأجير ورحلات اليخوت السياحية الخاصة والمشتركة',
-            children: [
-              {
-                id: 'cat-yacht-private',
-                name: 'يخوت خاصة VIP',
-                handle: 'vip-private-yachts',
-                description: 'يخوت فاخرة مؤجرة بالكامل للرحلات الخاصة وكبار الشخصيات'
-              },
-              {
-                id: 'cat-yacht-shared',
-                name: 'يخوت مشتركة',
-                handle: 'shared-yachts',
-                description: 'رحلات يومية جماعية على متن يخوت مجهزة بالوجبات والسنوركلينج'
-              },
-              {
-                id: 'cat-yacht-sunset',
-                name: 'رحلات غروب رومانسية',
-                handle: 'romantic-sunset-trips',
-                description: 'جولات مسائية هادئة لمشاهدة الغروب مع عشاء بحري'
-              }
-            ]
-          },
-          {
-            id: 'cat-diving',
-            name: 'الغوص والسنوركلينج',
-            handle: 'diving-snorkeling',
-            description: 'برامج الغوص الاحترافية والتمهيدية واستكشاف الشعاب المرجانية',
-            children: [
-              {
-                id: 'cat-dive-intro',
-                name: 'غوص تمهيدي للمبتدئين (Intro)',
-                handle: 'intro-diving',
-                description: 'تجربة غوص آمنة مع مدرب معتمد دون اشتراط رخصة مسبقة'
-              },
-              {
-                id: 'cat-dive-pro',
-                name: 'غوص أعماق محترفين (PADI)',
-                handle: 'pro-padi-diving',
-                description: 'غطسات متخصصة لحاملي رخص الغوص الدولية في مواقع الأعماق'
-              },
-              {
-                id: 'cat-dive-night',
-                name: 'غوص ليلي واستكشاف كهوف',
-                handle: 'night-cave-diving',
-                description: 'مغامرات غوص ليلية واستكشاف الكهوف والشعاب المرجانية'
-              }
-            ]
-          },
-          {
-            id: 'cat-islands',
-            name: 'رحلات الجزر البحرية',
-            handle: 'island-trips',
-            description: 'رحلات يومية إلى أشهر الجزر والشواطئ الرملية بالبحر الأحمر',
-            children: [
-              {
-                id: 'cat-isl-giftun',
-                name: 'جزيرة الجفتون وأورانج باي',
-                handle: 'giftun-orange-bay',
-                description: 'رحلة بحرية إلى محمية الجفتون وشاطئ أورانج باي'
-              },
-              {
-                id: 'cat-isl-paradise',
-                name: 'جزيرة برادايس وباراشوت',
-                handle: 'paradise-island-parasail',
-                description: 'يوم كامل بجزيرة برادايس مع ألعاب مائية وباراشوت'
-              },
-              {
-                id: 'cat-isl-magawish',
-                name: 'جزر مجاويش وأبو منقار',
-                handle: 'magawish-abu-minqar',
-                description: 'جولات استجمام وسباحة في جزر مجاويش وأبو منقار'
-              }
-            ]
-          },
-          {
-            id: 'cat-sub',
-            name: 'الغواصات والمراكب الزجاجية',
-            handle: 'submarines-glass-boats',
-            description: 'جولات مشاهدة الشعاب المرجانية دون الحاجة للسباحة',
-            children: [
-              {
-                id: 'cat-sub-semi',
-                name: 'غواصات شبه غاطسة (Semi-Submarine)',
-                handle: 'semi-submarine',
-                description: 'كابينة مشاهدة بانورامية تحت سطح الماء للعائلات والأطفال'
-              },
-              {
-                id: 'cat-sub-glass',
-                name: 'مراكب زجاجية بانورامية (Glass-Bottom)',
-                handle: 'glass-bottom-boats',
-                description: 'قوارب بقاع زجاجي شفاف لاستكشاف الأسماك والشعاب'
-              }
-            ]
-          },
-          {
-            id: 'cat-watersports',
-            name: 'ألعاب مائية وباراشوت',
-            handle: 'water-sports-parasailing',
-            description: 'أنشطة التشويق المائي والباراشوت البحري والبانانا بوت',
-            children: [
-              {
-                id: 'cat-ws-parasail',
-                name: 'باراشوت بحري منفرد وزوجي',
-                handle: 'solo-tandem-parasailing',
-                description: 'تحليق بالباراشوت البحري فوق ساحل البحر الأحمر'
-              },
-              {
-                id: 'cat-ws-banana',
-                name: 'بانانا بوت وتيوب مائي سريع',
-                handle: 'banana-boat-tube',
-                description: 'جولات سريعة بالقوارب المطاطية والتيوب المائي'
-              }
-            ]
-          }
-        ]
+        id: 'cat-marine-yacht-vip',
+        name: 'رحلات اليخوت الخاصة VIP',
+        handle: 'vip-private-yachts',
+        description: 'يخوت فاخرة مؤجرة بالكامل للرحلات الخاصة وكبار الشخصيات والعائلات'
       },
       {
-        id: 'cat-desert',
-        name: 'سفاري ومغامرات صحراوية',
-        handle: 'desert-safari-adventures',
-        description: 'رحلات السفاري الجبلية والوديان الصحراوية والمخيمات البدوية',
-        children: [
-          {
-            id: 'cat-quad',
-            name: 'سفاري بيتش باجي (Quad Bikes)',
-            handle: 'quad-bike-safari',
-            description: 'قيادة دراجات الدفع الرباعي في المسارات الجبلية الصحراوية',
-            children: [
-              {
-                id: 'cat-quad-single',
-                name: 'بيتش باجي فردي 250cc',
-                handle: 'single-quad-250cc',
-                description: 'دراجة بيتش باجي فردية لرحلات السفاري السريعة'
-              },
-              {
-                id: 'cat-quad-double',
-                name: 'بيتش باجي زوجي ومجموعات',
-                handle: 'double-group-quad',
-                description: 'دراجات بيتش باجي مزدوجة مناسبة للأزواج والمجموعات'
-              }
-            ]
-          },
-          {
-            id: 'cat-buggy',
-            name: 'سفاري سيارات الدفع الرباعي والباجي',
-            handle: '4x4-buggy-safari',
-            description: 'مغامرات الصحراء بسيارات الجيب وسبايدر كار',
-            children: [
-              {
-                id: 'cat-buggy-sp',
-                name: 'سبايدر كار وباجي صحراوي',
-                handle: 'spider-car-desert-buggy',
-                description: 'مركبات سبايدر كار الرياضية ذات المقعدين في الصحراء'
-              },
-              {
-                id: 'cat-jeep-4x4',
-                name: 'جيب لاند كروزر 4x4',
-                handle: 'land-cruiser-4x4',
-                description: 'رحلات جيب مكيفة عبر الوديان الجبلية والقرى البدوية'
-              }
-            ]
-          },
-          {
-            id: 'cat-bedouin',
-            name: 'عشاء بدوي وفلكلور صحراوي',
-            handle: 'bedouin-dinner-folklore',
-            description: 'سهرات صحراوية تشمل العشاء البدوي ورصد النجوم والعروض',
-            children: [
-              {
-                id: 'cat-bed-stargaze',
-                name: 'رصد فلكي وتليسكوبات',
-                handle: 'astronomy-stargazing',
-                description: 'ليلة رصد للنجوم والكواكب باستخدام التليسكوبات الفلكية'
-              },
-              {
-                id: 'cat-bed-show',
-                name: 'حفل شواء بدوي وعرض نار',
-                handle: 'bedouin-bbq-fire-show',
-                description: 'بوفيه شواء بدوي وعروض فلكلورية ونارية مسائية'
-              }
-            ]
-          }
-        ]
+        id: 'cat-marine-yacht-shared',
+        name: 'رحلات اليخوت والجزر المشتركة',
+        handle: 'shared-yacht-islands',
+        description: 'رحلات يومية جماعية إلى الجزر والشواطئ البحرية مع غداء ووقفات سباحة'
       },
       {
-        id: 'cat-equestrian',
-        name: 'فروسية وركوب الخيل والجمال',
-        handle: 'equestrian-horse-camel',
-        description: 'جولات الفروسية على الشاطئ وفي الصحراء وركوب الجمال',
-        children: [
-          {
-            id: 'cat-horses',
-            name: 'خيول عربية أصيلة',
-            handle: 'arabian-horses',
-            description: 'تجارب ركوب الخيول العربية الأصيلة للمبتدئين والمحترفين',
-            children: [
-              {
-                id: 'cat-horse-beach',
-                name: 'سباحة بالخيل على الشاطئ',
-                handle: 'beach-horse-swimming',
-                description: 'جولة ركوب وسباحة بالخيل على شاطئ البحر الأحمر'
-              },
-              {
-                id: 'cat-horse-desert',
-                name: 'ركوب خيل في الوديان الصحراوية',
-                handle: 'desert-valley-horse-riding',
-                description: 'انطلاق بالخيول في المسارات الصحراوية والوديان الجبلية'
-              }
-            ]
-          },
-          {
-            id: 'cat-camel',
-            name: 'قوافل الجمال البدوية',
-            handle: 'bedouin-camel-caravans',
-            description: 'جولات هادئة على ظهور الجمال في المسارات البدوية',
-            children: [
-              {
-                id: 'cat-camel-sunset',
-                name: 'جولات الجمال وقت الغروب',
-                handle: 'sunset-camel-rides',
-                description: 'رحلة جمال صحراوية ساحرة مع غروب الشمس'
-              }
-            ]
-          }
-        ]
+        id: 'cat-marine-speedboat',
+        name: 'القوارب السريعة والجولات البحرية',
+        handle: 'speedboat-tours',
+        description: 'جولات مرنة وسريعة باللانش الخاص لمشاهدة الدلافين والوصول السريع للجزر'
+      }
+    ]
+  },
+  {
+    id: 'cat-diving',
+    name: 'الغوص والسنوركلينج',
+    handle: 'diving-and-snorkeling',
+    description: 'الركيزة الرئيسية لبرامج الغوص التمهيدية والمعتمدة ورحلات السنوركلينج والشعاب',
+    children: [
+      {
+        id: 'cat-diving-intro',
+        name: 'غوص تمهيدي للمبتدئين (Intro)',
+        handle: 'intro-diving',
+        description: 'تجربة غوص آمنة للمبتدئين مع مدرب معتمد دون اشتراط رخصة غوص مسبقة'
       },
       {
-        id: 'cat-air',
-        name: 'طيران وسياحة هوائية',
-        handle: 'air-aviation-tourism',
-        description: 'أنشطة التحليق والسياحة الجوية والمناطيد',
-        children: [
-          {
-            id: 'cat-balloon',
-            name: 'المنطاد الطائر (Hot Air Balloon)',
-            handle: 'hot-air-balloon',
-            description: 'رحلات المنطاد الهوائي فوق المعالم الأثرية والطبيعية',
-            children: [
-              {
-                id: 'cat-balloon-luxor',
-                name: 'منطاد شروق الشمس',
-                handle: 'sunrise-balloon-luxor',
-                description: 'تحليق بالمنطاد وقت الشروق بإطلالة بانورامية كاملة'
-              }
-            ]
-          }
-        ]
+        id: 'cat-diving-pro',
+        name: 'غوص أعماق معتمد (PADI / SSI)',
+        handle: 'certified-deep-diving',
+        description: 'غطسات متخصصة لحاملي رخص الغوص الدولية في مواقع الشعاب العميقة والحطام'
+      },
+      {
+        id: 'cat-diving-snorkel',
+        name: 'رحلات السنوركلينج والشعاب المرجانية',
+        handle: 'reef-snorkeling',
+        description: 'جولات سنوركلينج عائلية في المياه الضحلة والشعاب الملونة دون غوص بأسطوانات'
+      }
+    ]
+  },
+  {
+    id: 'cat-safari',
+    name: 'السفاري والمغامرات الصحراوية',
+    handle: 'desert-safari-adventures',
+    description: 'الركيزة الرئيسية لرحلات البيتش باجي والدفع الرباعي 4×4 والمخيمات البدوية',
+    children: [
+      {
+        id: 'cat-safari-quad',
+        name: 'سفاري بيتش باجي وكواد',
+        handle: 'quad-bike-safari',
+        description: 'قيادة دراجات البيتش باجي الفردية والزوجية في المسارات الجبلية الصحراوية'
+      },
+      {
+        id: 'cat-safari-4x4',
+        name: 'سفاري سيارات الدفع الرباعي 4×4',
+        handle: 'jeep-4x4-safari',
+        description: 'رحلات عائلية مريحة بسيارات الجيب المجهزة عبر الوديان والقرى البدوية'
+      },
+      {
+        id: 'cat-safari-bedouin',
+        name: 'المخيمات البدوية والعشاء ورصد النجوم',
+        handle: 'bedouin-camp-stargazing',
+        description: 'أمسيات صحراوية تشمل الشواء البدوي والعروض الفلكلورية ورصد النجوم بالتليسكوب'
+      }
+    ]
+  },
+  {
+    id: 'cat-leisure',
+    name: 'الجولات الترفيهية والنيلية والمائية',
+    handle: 'leisure-marine-nile-tours',
+    description: 'الركيزة الرئيسية للغواصات الزجاجية والألعاب المائية والفروسية والرحلات النيلية',
+    children: [
+      {
+        id: 'cat-leisure-glassboat',
+        name: 'الغواصات والمراكب الزجاجية',
+        handle: 'glass-boats-submarines',
+        description: 'جولات مشاهدة الشعاب المرجانية عبر كابينات بانورامية مكيفة لجميع الأعمار'
+      },
+      {
+        id: 'cat-leisure-watersports',
+        name: 'الألعاب المائية والباراشوت البحري',
+        handle: 'watersports-parasailing',
+        description: 'تحليق الباراشوت البحري وجولات البانانا بوت والتيوب المائي السريع'
+      },
+      {
+        id: 'cat-leisure-equestrian-nile',
+        name: 'الفروسية الشاطئية ورحلات الفلوكة',
+        handle: 'equestrian-nile-felucca',
+        description: 'جولات ركوب الخيل العربي على الشاطئ ورحلات الإبحار الهادئ بالفلوكة'
       }
     ]
   }
@@ -792,5 +630,17 @@ export async function deleteLocalCategoryRecord(
     deletedId: id,
     records: nextRecords,
     tree: buildTreeFromRecords(nextRecords)
+  };
+}
+
+export async function resetAndReseedLocalCategoriesDb(): Promise<{
+  records: CategoryRecord[];
+  tree: CategoryNode[];
+}> {
+  const seeded = buildSeedRecords();
+  await writeAllRecordsToStorage(seeded);
+  return {
+    records: sortRecords(seeded),
+    tree: buildTreeFromRecords(seeded)
   };
 }

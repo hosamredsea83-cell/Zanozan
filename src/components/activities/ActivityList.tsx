@@ -7,6 +7,7 @@ import {
   PauseCircle, Archive, Edit3, Eye, Copy, Filter, Sparkles, Trash2, AlertTriangle, ShieldCheck
 } from 'lucide-react';
 import { ActivityCardMediaGallery, ActivityCardAllProperties } from './ActivityCardSections';
+import { activityBelongsToOwner } from '../../db/localActivitiesDb';
 import {
   RegistryColumnFilterDropdown,
   RegistryFilterOption,
@@ -87,13 +88,9 @@ export const ActivityList: React.FC<ActivityListProps> = ({
   const [deletingActivity, setDeletingActivity] = useState<Activity | null>(null);
   const tableState = useRegistryTableState<ActivityTableCol>(ACTIVITY_TABLE_COLUMNS);
 
-  // Data Isolation: The current user only sees their own company's activities in Edit & Management!
-  const userActivities = currentUser 
-    ? activities.filter((act) =>
-        act.owner?.id === currentUser.id ||
-        act.owner?.companyName === currentUser.companyName ||
-        act.owner?.name === currentUser.name
-      )
+  // Data Isolation: The current user sees their own activities + pending external supplier items they added until claimed
+  const userActivities = currentUser
+    ? activities.filter((act) => activityBelongsToOwner(act, currentUser))
     : activities;
 
   const filtered = userActivities.filter((act) => {

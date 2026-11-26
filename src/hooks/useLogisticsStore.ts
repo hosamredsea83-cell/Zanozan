@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { AppUser } from '../types/auth';
 import {
   LOGISTICS_CATEGORY_LABELS,
@@ -8,6 +8,7 @@ import {
 } from '../types/logistics';
 import type { LogAuditEventInput } from './useAuditLogStore';
 import { buildCreateAuditTrail, buildUpdateAuditTrail } from './useAuditLogStore';
+import { fetchDomainStore, saveDomainStore } from '../services/serverStoreSync';
 
 const LOGISTICS_VEHICLES_STORAGE_KEY = 'zanoza_logistics_vehicles_v1';
 
@@ -30,6 +31,25 @@ export function useLogisticsStore(
   const [logisticsVehicles, setLogisticsVehicles] = useState<LogisticsVehicle[]>(() =>
     readStoredLogisticsVehicles()
   );
+  const hasHydratedServer = useRef(false);
+
+  useEffect(() => {
+    let active = true;
+    fetchDomainStore<LogisticsVehicle[]>('logistics_vehicles')
+      .then((serverRows) => {
+        if (!active) return;
+        if (Array.isArray(serverRows)) {
+          setLogisticsVehicles(serverRows);
+        }
+        hasHydratedServer.current = true;
+      })
+      .catch(() => {
+        if (active) hasHydratedServer.current = true;
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     try {
@@ -39,6 +59,9 @@ export function useLogisticsStore(
       );
     } catch {
       // ignore storage quota errors
+    }
+    if (hasHydratedServer.current) {
+      void saveDomainStore('logistics_vehicles', logisticsVehicles);
     }
   }, [logisticsVehicles]);
 

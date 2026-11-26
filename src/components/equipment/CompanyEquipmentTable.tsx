@@ -7,6 +7,7 @@ import {
 } from '../../types/equipment';
 import { Activity } from '../../types/activity';
 import { AppUser } from '../../types/auth';
+import { equipmentBelongsToEditableUser } from '../../utils/assetCustodyHelpers';
 import {
   Wrench,
   Plus,
@@ -87,10 +88,10 @@ export const CompanyEquipmentTable: React.FC<CompanyEquipmentTableProps> = ({
   onDeleteEquipment,
   onInspectEquipment
 }) => {
-  // Strict company isolation: only equipments added by the current company owner
+  // Strict control isolation: equipments controlled by currentUser (including external_pending added by them, excluding isolated ones)
   const companyEquipments = useMemo(
-    () => equipments.filter((eq) => eq.ownerId === currentUser.id),
-    [equipments, currentUser.id]
+    () => equipments.filter((eq) => equipmentBelongsToEditableUser(eq, currentUser)),
+    [equipments, currentUser]
   );
 
   const [selectedTypeTab, setSelectedTypeTab] = useState<string>('all');

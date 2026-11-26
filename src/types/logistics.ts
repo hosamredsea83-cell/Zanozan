@@ -1,3 +1,5 @@
+import type { AssetPersonCustodyMeta } from './personProfile';
+
 export type LogisticsVehicleCategory =
   | 'tourist_bus'
   | 'hiace_van'
@@ -25,8 +27,13 @@ export interface LogisticsVehicle {
   ownerCompanyName: string;
   name: string;
   category: LogisticsVehicleCategory;
+  manufacturerId?: string;
+  manufacturerName?: string;
+  modelId?: string;
+  modelName?: string;
   plateOrCode: string;
   modelYear?: string;
+  country?: string;
   city: string;
   zone: string;
   passengerCapacity: number;
@@ -36,6 +43,7 @@ export interface LogisticsVehicle {
   partnerId?: string;
   partnerName?: string;
   partnerCompanyName?: string;
+  personCustody?: AssetPersonCustodyMeta;
   pricePerTripEGP: number;
   pricePerTripEUR: number;
   status: LogisticsVehicleStatus;

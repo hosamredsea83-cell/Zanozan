@@ -21,6 +21,10 @@ import {
   PricingPropertyItem,
   SeasonalDiscount
 } from '../../types/activity';
+import {
+  ACTIVITY_TERMINOLOGY,
+  type EntityTerminologyConfig
+} from '../reference/creation/entityCreationTerminology';
 
 export type BaseCurrency = 'EGP' | 'USD' | 'EUR';
 
@@ -161,6 +165,7 @@ interface DynamicPricingRulesEditorProps {
   formData: Activity;
   setFormData: React.Dispatch<React.SetStateAction<Activity>>;
   pricingProperties?: PricingPropertyItem[];
+  terms?: EntityTerminologyConfig;
 }
 
 function hydrateInitialRules(activity: Activity): ActiveRuleState[] {
@@ -296,7 +301,8 @@ function hydrateInitialRules(activity: Activity): ActiveRuleState[] {
 export const DynamicPricingRulesEditor: React.FC<DynamicPricingRulesEditorProps> = ({
   formData,
   setFormData,
-  pricingProperties = []
+  pricingProperties = [],
+  terms = ACTIVITY_TERMINOLOGY
 }) => {
   const activePricingProps = pricingProperties.filter((p) => p.isActive);
   const selectedProps = formData.selectedPricingProperties ?? [];
@@ -705,15 +711,15 @@ export const DynamicPricingRulesEditor: React.FC<DynamicPricingRulesEditorProps>
   return (
     <div className="space-y-4">
 
-      {/* اختيار الفئات العمرية المعتمدة لهذا النشاط من خصائص السعر */}
+      {/* اختيار الفئات العمرية المعتمدة من خصائص السعر */}
       <div className="bg-slate-950/90 border border-cyan-500/25 rounded-xl p-3.5 space-y-2.5">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-1.5 text-[11px] font-bold text-cyan-300">
             <SlidersHorizontal className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
-            <span>اختيار الفئات العمرية المعتمدة لهذا النشاط (من خصائص السعر):</span>
+            <span>{terms.pricingAgeTiersTitle}</span>
           </div>
           <span className="text-[10px] font-mono text-slate-400">
-            {selectedProps.length} فئة محددة للنشاط
+            {terms.pricingAgeTiersCountLabel(selectedProps.length)}
           </span>
         </div>
 
@@ -762,7 +768,7 @@ export const DynamicPricingRulesEditor: React.FC<DynamicPricingRulesEditorProps>
           </div>
         ) : (
           <p className="text-[10px] text-slate-400">
-            اختر الفئات المناسبة لهذا النشاط فقط (مثلاً: «رضيع أقل من 2 سنة» لهذا النشاط أو «رضيع أقل من 3 سنوات» لنشاط آخر) لتظهر للعميل بدقة عند الحفظ.
+            {terms.pricingAgeTiersHint}
           </p>
         )}
       </div>
@@ -772,7 +778,7 @@ export const DynamicPricingRulesEditor: React.FC<DynamicPricingRulesEditorProps>
         <div className="flex items-center justify-between gap-2">
           <span className="text-[11px] font-bold text-slate-200 flex items-center gap-1.5">
             <Sparkles className="w-3.5 h-3.5 text-cyan-400" />
-            <span>خيارات التسعير الديناميكية (اختر القواعد المناسبة لنشاطك فقط):</span>
+            <span>{terms.pricingDynamicChipsTitle}</span>
           </span>
           <span className="text-[10px] font-mono text-slate-400">
             {activeRules.length} / {PRICING_CHIPS.length} مفعّلة

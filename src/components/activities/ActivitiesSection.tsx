@@ -8,19 +8,35 @@ import type {
   SeasonalDiscount
 } from '../../types/activity';
 import type { AppUser } from '../../types/auth';
-import type { EquipmentItem, EquipmentTypeDefinition } from '../../types/equipment';
+import type { EquipmentItem, EquipmentPropertyItem, EquipmentTypeDefinition } from '../../types/equipment';
+import type {
+  CityRecord,
+  CountryRecord,
+  EquipmentUnitKindItem,
+  InclusionCatalogItem,
+  InclusionKind,
+  MeetingPointRecord,
+  SpecGroupRecord
+} from '../../types/masterReference';
+import type { LogisticsVehicle } from '../../types/logistics';
+import type { MasterAddonItem } from '../../types/addon';
 import type { NavigationItemKey } from '../layout/Sidebar';
 import type { PlatformPricingSettings } from '../pricing/PricingToolManager';
+import type { ActivityCostProfile, OperationalCostLineItem } from '../../types/operationalCost';
+import type { PersonProfile } from '../../types/personProfile';
 import { ActivityCreationHub } from './ActivityCreationHub';
 import { ActivityEditor, CategoryNode } from './ActivityEditor';
 import { ActivityList } from './ActivityList';
 import { ActivitiesMarketplace } from './ActivitiesMarketplace';
-import { CategoriesManager } from './CategoriesManager';
 import { ActivityCollection, CollectionsManager } from './CollectionsManager';
-import { CustomTechnicalSpecsManager } from './CustomTechnicalSpecsManager';
 import { DiscountsManager } from './DiscountsManager';
 import { OffersManager } from './OffersManager';
 import { PricingPropertiesManager } from './PricingPropertiesManager';
+import { activityBelongsToOwner } from '../../db/localActivitiesDb';
+import type {
+  RegisteredSupplierRecord,
+  SupplierPricingJournalEntry
+} from '../../types/supplierJournal';
 
 interface ActivitiesSectionProps {
   currentNavKey: NavigationItemKey;
@@ -28,6 +44,17 @@ interface ActivitiesSectionProps {
   activities: Activity[];
   equipments: EquipmentItem[];
   equipmentTypes: EquipmentTypeDefinition[];
+  equipmentUnitKinds?: EquipmentUnitKindItem[];
+  equipmentProperties: EquipmentPropertyItem[];
+  logisticsVehicles?: LogisticsVehicle[];
+  masterAddons: MasterAddonItem[];
+  specGroups: SpecGroupRecord[];
+  inclusionsCatalog: InclusionCatalogItem[];
+  onCreateInclusionItem: (input: {
+    label: string;
+    kind: InclusionKind;
+    linkedCategoryIds?: string[];
+  }) => InclusionCatalogItem;
   isEditingActivity: boolean;
   setIsEditingActivity: (editing: boolean) => void;
   selectedActivityForEdit: Activity | null;
@@ -39,13 +66,14 @@ interface ActivitiesSectionProps {
   pricingProperties: PricingPropertyItem[];
   setPricingProperties: React.Dispatch<React.SetStateAction<PricingPropertyItem[]>>;
   customTechnicalSpecs: CustomTechnicalSpecItem[];
-  setCustomTechnicalSpecs: React.Dispatch<React.SetStateAction<CustomTechnicalSpecItem[]>>;
   platformPricingSettings: PlatformPricingSettings;
   categoryTree: CategoryNode[];
   categoryRecords: CategoryRecord[];
   onNavigate: (key: NavigationItemKey) => void;
   onNewActivity: (preset?: string) => void;
   onSaveActivity: (updated: Activity) => Promise<Activity>;
+  onAfterSaveActivity?: (persisted: Activity) => void;
+  onCancelActivityEdit?: () => void;
   onDeleteActivity: (activityId: string) => void;
   onToggleStatus: (activityId: string, newStatus: ActivityStatus) => void;
   onToggleCompare: (activity: Activity) => void;
@@ -54,22 +82,47 @@ interface ActivitiesSectionProps {
   onApplyOfferToActivity: (activityId: string, offer: SeasonalDiscount) => void;
   onRemoveOffer: (activityId: string, offerId: string) => void;
   onUpdateActivityPricing: (activityId: string, pricing: Activity['pricing']) => void;
-  onCreateCategoryRecord: (payload: {
+  onAddCategoryToTree: (path: string[], newName: string) => void;
+  onPreviewActivity: (act: Activity, clientMode: boolean) => void;
+  registeredSuppliers?: RegisteredSupplierRecord[];
+  supplierJournals?: SupplierPricingJournalEntry[];
+  onAddRegisteredSupplier?: (input: {
     id?: string;
     name: string;
-    handle?: string;
-    description?: string;
-    parentId?: string | null;
-    parentPath?: string[];
-  }) => Promise<CategoryRecord>;
-  onUpdateCategoryRecord: (
-    id: string,
-    updates: { name?: string; handle?: string; description?: string }
-  ) => Promise<CategoryRecord>;
-  onDeleteCategoryRecord: (id: string) => Promise<void>;
-  onAddCategoryToTree: (path: string[], newName: string) => void;
-  onResetCustomSpecsCatalog: () => Promise<void>;
-  onPreviewActivity: (act: Activity, clientMode: boolean) => void;
+    companyName: string;
+    phone: string;
+    tier: string;
+  }) => Promise<RegisteredSupplierRecord>;
+  onSubscribeSupplierToPlatform?: (supplierId: string) => Promise<{
+    supplier: RegisteredSupplierRecord;
+    user: AppUser;
+    migratedActivitiesCount: number;
+    migratedTripsCount: number;
+  } | null>;
+  onSwitchToSubscribedUser?: (user: AppUser) => void;
+  countriesRef?: CountryRecord[];
+  citiesRef?: CityRecord[];
+  meetingPointsRef?: MeetingPointRecord[];
+  onCreateCountryRef?: (input: { name: string; code?: string }) => CountryRecord;
+  onCreateCityRef?: (input: { countryId: string; name: string }) => CityRecord;
+  onCreateMeetingPointRef?: (input: {
+    countryId?: string;
+    cityId: string;
+    name: string;
+    pointType?: 'meeting_point' | 'site' | 'both';
+  }) => MeetingPointRecord;
+  costProfiles?: ActivityCostProfile[];
+  personProfiles?: PersonProfile[];
+  onSaveCostProfile?: (
+    draft: Omit<ActivityCostProfile, 'id' | 'ownerId' | 'createdAt' | 'updatedAt' | 'auditTrail'> & {
+      id?: string;
+    }
+  ) => ActivityCostProfile;
+  onSyncCostItemsToLedger?: (input: {
+    entityId: string;
+    entityName: string;
+    computedItems: Array<{ item: OperationalCostLineItem; impactEGP: number }>;
+  }) => Promise<number>;
 }
 
 export const ActivitiesSection: React.FC<ActivitiesSectionProps> = ({
@@ -78,6 +131,13 @@ export const ActivitiesSection: React.FC<ActivitiesSectionProps> = ({
   activities,
   equipments,
   equipmentTypes,
+  equipmentUnitKinds = [],
+  equipmentProperties,
+  logisticsVehicles = [],
+  masterAddons,
+  specGroups,
+  inclusionsCatalog,
+  onCreateInclusionItem,
   isEditingActivity,
   setIsEditingActivity,
   selectedActivityForEdit,
@@ -89,13 +149,14 @@ export const ActivitiesSection: React.FC<ActivitiesSectionProps> = ({
   pricingProperties,
   setPricingProperties,
   customTechnicalSpecs,
-  setCustomTechnicalSpecs,
   platformPricingSettings,
   categoryTree,
   categoryRecords,
   onNavigate,
   onNewActivity,
   onSaveActivity,
+  onAfterSaveActivity,
+  onCancelActivityEdit,
   onDeleteActivity,
   onToggleStatus,
   onToggleCompare,
@@ -104,12 +165,23 @@ export const ActivitiesSection: React.FC<ActivitiesSectionProps> = ({
   onApplyOfferToActivity,
   onRemoveOffer,
   onUpdateActivityPricing,
-  onCreateCategoryRecord,
-  onUpdateCategoryRecord,
-  onDeleteCategoryRecord,
   onAddCategoryToTree,
-  onResetCustomSpecsCatalog,
-  onPreviewActivity
+  onPreviewActivity,
+  registeredSuppliers,
+  supplierJournals,
+  onAddRegisteredSupplier,
+  onSubscribeSupplierToPlatform,
+  onSwitchToSubscribedUser,
+  countriesRef = [],
+  citiesRef = [],
+  meetingPointsRef = [],
+  onCreateCountryRef,
+  onCreateCityRef,
+  onCreateMeetingPointRef,
+  costProfiles = [],
+  personProfiles = [],
+  onSaveCostProfile,
+  onSyncCostItemsToLedger
 }) => {
   return (
     <>
@@ -123,11 +195,19 @@ export const ActivitiesSection: React.FC<ActivitiesSectionProps> = ({
               const persisted = await onSaveActivity(updated);
               setSelectedActivityForEdit(persisted);
               setIsEditingActivity(false);
+              onAfterSaveActivity?.(persisted);
             }}
-            onCancel={() => setIsEditingActivity(false)}
+            onCancel={() => {
+              setIsEditingActivity(false);
+              onCancelActivityEdit?.();
+            }}
             currentUser={currentUser}
             equipments={equipments}
             equipmentTypes={equipmentTypes}
+            equipmentUnitKinds={equipmentUnitKinds}
+            equipmentProperties={equipmentProperties}
+            logisticsVehicles={logisticsVehicles}
+            masterAddons={masterAddons}
             allActivities={activities}
             onNavigateToEquipment={() => onNavigate('activity_equipment')}
             activityCollections={activityCollections}
@@ -136,9 +216,30 @@ export const ActivitiesSection: React.FC<ActivitiesSectionProps> = ({
             }
             pricingProperties={pricingProperties}
             customTechnicalSpecs={customTechnicalSpecs}
-            onNavigateToCustomSpecs={() => onNavigate('activity_custom_specs')}
+            specGroups={specGroups}
+            inclusionsCatalog={inclusionsCatalog}
+            categoryRecords={categoryRecords}
+            onCreateInclusionItem={onCreateInclusionItem}
+            onNavigateToCustomSpecs={() => onNavigate('unified_reference')}
+            onNavigateToAddonsLibrary={() => onNavigate('unified_reference')}
             categoryTree={categoryTree}
             onAddCategoryToTree={onAddCategoryToTree}
+            registeredSuppliers={registeredSuppliers}
+            supplierJournals={supplierJournals}
+            onAddRegisteredSupplier={onAddRegisteredSupplier}
+            onSubscribeSupplierToPlatform={onSubscribeSupplierToPlatform}
+            onSwitchToSubscribedUser={onSwitchToSubscribedUser}
+            countriesRef={countriesRef}
+            citiesRef={citiesRef}
+            meetingPointsRef={meetingPointsRef}
+            onCreateCountryRef={onCreateCountryRef}
+            onCreateCityRef={onCreateCityRef}
+            onCreateMeetingPointRef={onCreateMeetingPointRef}
+            costProfiles={costProfiles}
+            personProfiles={personProfiles}
+            platformPricingSettings={platformPricingSettings}
+            onSaveCostProfile={onSaveCostProfile}
+            onSyncCostItemsToLedger={onSyncCostItemsToLedger}
           />
         ) : (
           <ActivityCreationHub
@@ -165,16 +266,6 @@ export const ActivitiesSection: React.FC<ActivitiesSectionProps> = ({
           collections={activityCollections}
           onCollectionsChange={setActivityCollections}
           onNavigateToActivityAdd={() => onNewActivity()}
-        />
-      )}
-
-      {currentNavKey === 'activity_categories' && (
-        <CategoriesManager
-          categoryTree={categoryTree}
-          categoryRecords={categoryRecords}
-          onCreateCategory={onCreateCategoryRecord}
-          onUpdateCategory={onUpdateCategoryRecord}
-          onDeleteCategory={onDeleteCategoryRecord}
         />
       )}
 
@@ -207,8 +298,7 @@ export const ActivitiesSection: React.FC<ActivitiesSectionProps> = ({
           onToggleCompare={onToggleCompare}
           onClearCompare={onClearCompare}
           onSelectActivity={(act) => {
-            const isOwn =
-              act.owner?.id === currentUser.id || act.owner?.name === currentUser.name;
+            const isOwn = activityBelongsToOwner(act, currentUser);
             onPreviewActivity(act, !isOwn);
           }}
           onEditActivity={(act) => {
@@ -241,15 +331,6 @@ export const ActivitiesSection: React.FC<ActivitiesSectionProps> = ({
         <PricingPropertiesManager
           pricingProperties={pricingProperties}
           onChangePricingProperties={setPricingProperties}
-        />
-      )}
-
-      {currentNavKey === 'activity_custom_specs' && (
-        <CustomTechnicalSpecsManager
-          customSpecs={customTechnicalSpecs}
-          onChangeCustomSpecs={setCustomTechnicalSpecs}
-          activities={activities}
-          onResetCatalog={onResetCustomSpecsCatalog}
         />
       )}
     </>

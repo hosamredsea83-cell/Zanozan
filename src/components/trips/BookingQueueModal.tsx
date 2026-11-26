@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Activity } from '../../types/activity';
+import type { SelectedPaidAddonItem } from '../../types/finance';
 import { 
   X, Clock, CheckCircle2, AlertTriangle, Users, MapPin, 
   Calendar, Phone, ShieldCheck, DollarSign, Car, Timer 
@@ -15,16 +16,41 @@ export interface BookingRequest {
   customerName: string;
   customerPhone: string;
   customerType: 'egyptian' | 'foreigner';
+  customerNationality?: string;
+  customerScope?: 'platform' | 'company';
+  registeredCompanyId?: string;
+  registeredCompanyName?: string;
   adultsCount: number;
   childrenCount: number;
   infantsCount: number;
   totalPriceEGP: number;
   totalPriceEUR: number;
+  selectedPaidAddons?: SelectedPaidAddonItem[];
   requiresPickup: boolean;
   pickupLocation: string;
   deadlineMinutesRemaining: number;
-  status: 'pending_approval' | 'approved' | 'rejected' | 'auto_cancelled';
+  status: 'pending_approval' | 'approved' | 'completed' | 'rejected' | 'auto_cancelled';
   rejectionReason?: string;
+  paymentMethod?: 'online_card' | 'cash_on_pickup' | 'deposit';
+  paymentStatus?: 'paid' | 'pending' | 'deposit';
+  bookingMode?: 'per_person' | 'private_group';
+  promoCode?: string;
+  promoDiscountEGP?: number;
+  promoDiscountEUR?: number;
+  depositAmountEGP?: number;
+  depositAmountEUR?: number;
+  remainingAmountEGP?: number;
+  remainingAmountEUR?: number;
+  cardLast4?: string;
+  refundStatus?: 'none' | 'full_refund_pending' | 'partial_refund_pending' | 'refund_settled';
+  refundAmountEGP?: number;
+  refundAmountEUR?: number;
+  cancellationPolicySummary?: string;
+  delegateUserId?: string;
+  delegateName?: string;
+  assignedDriverId?: string;
+  assignedDriverName?: string;
+  entityKind?: 'activity' | 'trip';
   createdAt: string;
 }
 
@@ -90,7 +116,33 @@ export const INITIAL_BOOKING_REQUESTS: BookingRequest[] = [
     pickupLocation: 'الوصول المباشر لمركز الغوص بمارينا',
     deadlineMinutesRemaining: 175,
     status: 'pending_approval',
-    createdAt: 'منذ 15 دقيقة'
+    createdAt: 'منذ ساعتين'
+  },
+  {
+    id: 'req-104',
+    bookingCode: 'ZN-84815',
+    activityId: 'act-safari-02',
+    activityName: 'سفاري الدفع الرباعي ATV والعشاء البدوي الفلكلوري',
+    slotLabel: '02:30 م - رحلة الغروب والعشاء',
+    tripDate: '2026-11-02',
+    customerName: 'نور الهدى منصور',
+    customerPhone: '+201277889900',
+    customerType: 'egyptian',
+    customerNationality: 'مصر',
+    customerScope: 'platform',
+    adultsCount: 2,
+    childrenCount: 0,
+    infantsCount: 0,
+    totalPriceEGP: 1100,
+    totalPriceEUR: 0,
+    requiresPickup: true,
+    pickupLocation: 'فندق الباتروس بالاس - الغردقة',
+    deadlineMinutesRemaining: 0,
+    status: 'completed',
+    paymentMethod: 'online_card',
+    paymentStatus: 'paid',
+    entityKind: 'activity',
+    createdAt: 'منذ أسبوع'
   }
 ];
 
@@ -319,6 +371,20 @@ export const BookingQueueModal: React.FC<BookingQueueModalProps> = ({
                       {req.createdAt}
                     </span>
                   </div>
+
+                  {req.selectedPaidAddons && req.selectedPaidAddons.length > 0 && (
+                    <div className="text-[11px] text-cyan-200 bg-cyan-950/20 border border-cyan-900/40 rounded-lg px-2.5 py-1.5 flex flex-wrap items-center gap-x-2 gap-y-1 tabular-nums">
+                      <span className="text-cyan-400 font-semibold">إضافات مدفوعة:</span>
+                      {req.selectedPaidAddons.map((ad, idx) => (
+                        <React.Fragment key={ad.id}>
+                          {idx > 0 && <span aria-hidden="true" className="text-slate-600">·</span>}
+                          <span>
+                            {ad.title} × <strong className="font-mono">{ad.quantity}</strong>
+                          </span>
+                        </React.Fragment>
+                      ))}
+                    </div>
+                  )}
 
                   {/* Action Buttons for Pending */}
                   {req.status === 'pending_approval' && (

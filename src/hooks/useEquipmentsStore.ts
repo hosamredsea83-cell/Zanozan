@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { CustomTechnicalSpecItem } from '../types/activity';
 import type { AppUser } from '../types/auth';
 import type {
@@ -10,6 +10,7 @@ import type {
 import type { PartnerRecord } from '../types/partner';
 import type { LogAuditEventInput } from './useAuditLogStore';
 import { buildCreateAuditTrail, buildUpdateAuditTrail } from './useAuditLogStore';
+import { fetchDomainStore, saveDomainStore } from '../services/serverStoreSync';
 import {
   loadCustomTechnicalSpecsFromDb,
   loadEquipmentPropertiesFromDb,
@@ -17,6 +18,8 @@ import {
   loadEquipmentTypesFromDb,
   resetAndReseedCustomTechnicalSpecsDb,
   resetAndReseedEquipmentPropertiesDb,
+  resetAndReseedEquipmentTypesDb,
+  resetAndReseedStarterEquipmentsDb,
   saveCustomTechnicalSpecsToDb,
   saveEquipmentPropertiesToDb,
   saveEquipmentsToDb,
@@ -41,6 +44,7 @@ export function useEquipmentsStore(
   const [customTechnicalSpecs, setCustomTechnicalSpecs] = useState<CustomTechnicalSpecItem[]>([]);
   const [partners, setPartners] = useState<PartnerRecord[]>([]);
   const [hasLoadedCatalogsFromDb, setHasLoadedCatalogsFromDb] = useState(false);
+  const hasHydratedEqServer = useRef(false);
 
   useEffect(() => {
     let active = true;
@@ -49,20 +53,29 @@ export function useEquipmentsStore(
       loadEquipmentTypesFromDb(),
       loadEquipmentsFromDb(),
       loadCustomTechnicalSpecsFromDb(),
-      loadPartnersFromDb()
+      loadPartnersFromDb(),
+      fetchDomainStore<EquipmentItem[]>('equipments')
     ])
-      .then(([eqProps, eqTypes, eqItems, customSpecs, partnerRows]) => {
+      .then(([eqProps, eqTypes, eqItems, customSpecs, partnerRows, serverEquipments]) => {
         if (!active) return;
         setEquipmentProperties(eqProps);
         setEquipmentTypes(eqTypes);
-        setEquipments(eqItems);
+        setEquipments(
+          Array.isArray(serverEquipments) && serverEquipments.length > 0
+            ? serverEquipments
+            : eqItems
+        );
         setCustomTechnicalSpecs(customSpecs);
         setPartners(partnerRows);
+        hasHydratedEqServer.current = true;
         setHasLoadedCatalogsFromDb(true);
       })
       .catch((err) => {
         console.error('Failed to load specs, equipment & partners catalogs from IndexedDB:', err);
-        if (active) setHasLoadedCatalogsFromDb(true);
+        if (active) {
+          hasHydratedEqServer.current = true;
+          setHasLoadedCatalogsFromDb(true);
+        }
       });
     return () => {
       active = false;
@@ -82,6 +95,9 @@ export function useEquipmentsStore(
   useEffect(() => {
     if (!hasLoadedCatalogsFromDb) return;
     void saveEquipmentsToDb(equipments);
+    if (hasHydratedEqServer.current) {
+      void saveDomainStore('equipments', equipments);
+    }
   }, [equipments, hasLoadedCatalogsFromDb]);
 
   useEffect(() => {
@@ -304,6 +320,17 @@ export function useEquipmentsStore(
     });
   };
 
+  const resetAllSpecsAndEquipmentCatalogs = async () => {
+    const nextProps = await resetAndReseedEquipmentPropertiesDb();
+    const nextTypes = await resetAndReseedEquipmentTypesDb(nextProps);
+    const nextFleet = await resetAndReseedStarterEquipmentsDb(nextTypes);
+    const nextSpecs = await resetAndReseedCustomTechnicalSpecsDb();
+    setEquipmentProperties(nextProps);
+    setEquipmentTypes(nextTypes);
+    setEquipments(nextFleet);
+    setCustomTechnicalSpecs(nextSpecs);
+  };
+
   const createPartner = (
     payload: Omit<PartnerRecord, 'id' | 'ownerId' | 'createdAt' | 'updatedAt'>
   ): PartnerRecord => {
@@ -392,6 +419,7 @@ export function useEquipmentsStore(
     changeEquipmentProperties,
     resetEquipmentPropertiesCatalog,
     resetCustomTechnicalSpecsCatalog,
+    resetAllSpecsAndEquipmentCatalogs,
     createPartner,
     updatePartner,
     deletePartner

@@ -4,6 +4,10 @@ import type { Activity } from '../../types/activity';
 import type { EquipmentItem, EquipmentTypeDefinition } from '../../types/equipment';
 import type { PlatformPricingSettings } from '../pricing/PricingToolManager';
 import { ActivityCardAllProperties, ActivityCardMediaGallery } from './ActivityCardSections';
+import {
+  ACTIVITY_TERMINOLOGY,
+  type EntityTerminologyConfig
+} from '../reference/creation/entityCreationTerminology';
 
 interface ActivityPreviewModalProps {
   activity: Activity | null;
@@ -14,6 +18,7 @@ interface ActivityPreviewModalProps {
   equipments: EquipmentItem[];
   equipmentTypes: EquipmentTypeDefinition[];
   platformPricingSettings: PlatformPricingSettings;
+  terms?: EntityTerminologyConfig;
 }
 
 export const ActivityPreviewModal: React.FC<ActivityPreviewModalProps> = ({
@@ -24,7 +29,8 @@ export const ActivityPreviewModal: React.FC<ActivityPreviewModalProps> = ({
   onOpenInEditor,
   equipments,
   equipmentTypes,
-  platformPricingSettings
+  platformPricingSettings,
+  terms = ACTIVITY_TERMINOLOGY
 }) => {
   if (!activity) return null;
 
@@ -33,7 +39,7 @@ export const ActivityPreviewModal: React.FC<ActivityPreviewModalProps> = ({
       <div className="bg-slate-900 border border-slate-800 rounded-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto p-6 space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-800 pb-3">
           <div>
-            <span className="text-[11px] text-cyan-400 font-medium">معاينة بطاقة النشاط الكاملة</span>
+            <span className="text-[11px] text-cyan-400 font-medium">{terms.previewModalTitle}</span>
             <h3 className="text-lg font-bold text-white">{activity.name}</h3>
           </div>
           <div className="flex items-center gap-2">
@@ -68,15 +74,17 @@ export const ActivityPreviewModal: React.FC<ActivityPreviewModalProps> = ({
         </div>
 
         <div className="rounded-xl overflow-hidden border border-slate-800">
-          <ActivityCardMediaGallery activity={activity} aspectClass="aspect-video" />
+          <ActivityCardMediaGallery activity={activity} aspectClass="aspect-video" terms={terms} />
         </div>
 
         <ActivityCardAllProperties
           activity={activity}
+          showStatsAndChannels={!clientMode}
           equipments={equipments}
           equipmentTypes={equipmentTypes}
           clientViewOnly={clientMode}
           platformPricingSettings={platformPricingSettings}
+          terms={terms}
         />
 
         <div className="pt-3 border-t border-slate-800 flex items-center justify-between">

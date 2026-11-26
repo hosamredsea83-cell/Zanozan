@@ -18,8 +18,19 @@ import {
 import type { Activity } from '../../types/activity';
 import type { AppUser } from '../../types/auth';
 import type { PartnerRecord } from '../../types/partner';
+import type { PersonProfile } from '../../types/personProfile';
+import type {
+  AssetCatalogScope,
+  CityRecord,
+  CountryRecord,
+  ManufacturerModelRecord,
+  ManufacturerRecord,
+  MeetingPointRecord
+} from '../../types/masterReference';
+import { vehicleBelongsToEditableUser } from '../../utils/assetCustodyHelpers';
 import type { Asset } from '../MediaUploadSection';
 import { StandardMediaUploader } from '../shared/StandardMediaUploader';
+import { ReferenceSelectWithAdd } from '../shared/ReferenceSelectWithAdd';
 import {
   RegistryColumnFilterDropdown,
   RegistryFilterOption,
@@ -45,12 +56,39 @@ interface LogisticsManagementProps {
   logisticsVehicles: LogisticsVehicle[];
   activities: Activity[];
   partners: PartnerRecord[];
+  personProfiles?: PersonProfile[];
+  preselectedProfileForAsset?: PersonProfile | null;
+  onConsumePreselectedProfile?: () => void;
   onCreateVehicle: (vehicle: LogisticsVehicle) => void;
   onUpdateVehicle: (updated: LogisticsVehicle) => void;
   onDeleteVehicle: (vehicleId: string) => void;
   onChangeVehicleStatus: (vehicleId: string, status: LogisticsVehicleStatus) => void;
   onNavigate: (key: NavigationItemKey) => void;
   onOpenActivityInEditor?: (activity: Activity) => void;
+  manufacturers?: ManufacturerRecord[];
+  manufacturerModels?: ManufacturerModelRecord[];
+  onCreateManufacturer?: (input: {
+    name: string;
+    applicableTo?: AssetCatalogScope;
+    linkedUnitKindIds?: string[];
+  }) => ManufacturerRecord;
+  onCreateManufacturerModel?: (input: {
+    manufacturerId: string;
+    name: string;
+    applicableTo?: AssetCatalogScope;
+    unitKindId?: string;
+  }) => ManufacturerModelRecord;
+  countriesRef?: CountryRecord[];
+  citiesRef?: CityRecord[];
+  meetingPointsRef?: MeetingPointRecord[];
+  onCreateCountryRef?: (input: { name: string; code?: string }) => CountryRecord;
+  onCreateCityRef?: (input: { countryId: string; name: string }) => CityRecord;
+  onCreateMeetingPointRef?: (input: {
+    countryId?: string;
+    cityId: string;
+    name: string;
+    pointType?: 'meeting_point' | 'site' | 'both';
+  }) => MeetingPointRecord;
 }
 
 type VehicleColKey =
@@ -120,8 +158,13 @@ const TRANSFER_COL_DROPDOWN_TITLES: Record<TransferColKey, string> = {
 interface VehicleFormState {
   name: string;
   category: LogisticsVehicleCategory;
+  manufacturerId: string;
+  manufacturerName: string;
+  modelId: string;
+  modelName: string;
   plateOrCode: string;
   modelYear: string;
+  country: string;
   city: string;
   zone: string;
   passengerCapacity: number;
@@ -129,6 +172,7 @@ interface VehicleFormState {
   driverPhone: string;
   ownershipType: LogisticsOwnershipType;
   partnerId: string;
+  personProfileId: string;
   pricePerTripEGP: number;
   pricePerTripEUR: number;
   status: LogisticsVehicleStatus;
@@ -142,8 +186,13 @@ function buildEmptyForm(): VehicleFormState {
   return {
     name: '',
     category: 'hiace_van',
+    manufacturerId: '',
+    manufacturerName: '',
+    modelId: '',
+    modelName: '',
     plateOrCode: '',
     modelYear: String(new Date().getFullYear()),
+    country: 'مصر',
     city: 'الغردقة',
     zone: 'الممشى السياحي',
     passengerCapacity: 12,
@@ -151,6 +200,7 @@ function buildEmptyForm(): VehicleFormState {
     driverPhone: '',
     ownershipType: 'owned',
     partnerId: '',
+    personProfileId: '',
     pricePerTripEGP: 600,
     pricePerTripEUR: 12,
     status: 'available',
@@ -189,12 +239,25 @@ export const LogisticsManagement: React.FC<LogisticsManagementProps> = ({
   logisticsVehicles,
   activities,
   partners,
+  personProfiles = [],
+  preselectedProfileForAsset,
+  onConsumePreselectedProfile,
   onCreateVehicle,
   onUpdateVehicle,
   onDeleteVehicle,
   onChangeVehicleStatus,
   onNavigate,
-  onOpenActivityInEditor
+  onOpenActivityInEditor,
+  manufacturers = [],
+  manufacturerModels = [],
+  onCreateManufacturer,
+  onCreateManufacturerModel,
+  countriesRef = [],
+  citiesRef = [],
+  meetingPointsRef = [],
+  onCreateCountryRef,
+  onCreateCityRef,
+  onCreateMeetingPointRef
 }) => {
   const [showInlineForm, setShowInlineForm] = useState<boolean>(mode === 'add');
   const [editingVehicleId, setEditingVehicleId] = useState<string | null>(null);
@@ -206,12 +269,28 @@ export const LogisticsManagement: React.FC<LogisticsManagementProps> = ({
   useEffect(() => {
     if (mode === 'add') {
       setEditingVehicleId(null);
-      setFormState(buildEmptyForm());
+      const base = buildEmptyForm();
+      if (preselectedProfileForAsset) {
+        const isSelfProfile =
+          preselectedProfileForAsset.linkedUserId === currentUser.id &&
+          (preselectedProfileForAsset.subscriptionStatus === 'native_member' ||
+            preselectedProfileForAsset.subscriptionStatus === 'subscribed_isolated');
+        setFormState({
+          ...base,
+          personProfileId: isSelfProfile ? '' : preselectedProfileForAsset.id,
+          driverName: preselectedProfileForAsset.name,
+          driverPhone: preselectedProfileForAsset.phone,
+          ownershipType: isSelfProfile ? 'owned' : 'partner_shared'
+        });
+        onConsumePreselectedProfile?.();
+      } else {
+        setFormState(base);
+      }
       setShowInlineForm(true);
     } else if (mode === 'manage') {
       setShowInlineForm(false);
     }
-  }, [mode]);
+  }, [mode, preselectedProfileForAsset]);
 
   const showToast = (msg: string) => {
     setFeedbackToast(msg);
@@ -574,8 +653,13 @@ export const LogisticsManagement: React.FC<LogisticsManagementProps> = ({
     setFormState({
       name: vehicle.name,
       category: vehicle.category,
+      manufacturerId: vehicle.manufacturerId || '',
+      manufacturerName: vehicle.manufacturerName || '',
+      modelId: vehicle.modelId || '',
+      modelName: vehicle.modelName || '',
       plateOrCode: vehicle.plateOrCode,
       modelYear: vehicle.modelYear || '',
+      country: vehicle.country || 'مصر',
       city: vehicle.city,
       zone: vehicle.zone,
       passengerCapacity: vehicle.passengerCapacity,
@@ -583,6 +667,7 @@ export const LogisticsManagement: React.FC<LogisticsManagementProps> = ({
       driverPhone: vehicle.driverPhone,
       ownershipType: vehicle.ownershipType,
       partnerId: vehicle.partnerId || '',
+      personProfileId: vehicle.personCustody?.personProfileId || '',
       pricePerTripEGP: vehicle.pricePerTripEGP,
       pricePerTripEUR: vehicle.pricePerTripEUR,
       status: vehicle.status,
@@ -602,6 +687,25 @@ export const LogisticsManagement: React.FC<LogisticsManagementProps> = ({
     if (!formState.name.trim()) return;
     const today = new Date().toISOString().split('T')[0];
     const selectedPartner = partners.find((p) => p.id === formState.partnerId);
+    const selectedProfile = personProfiles.find((p) => p.id === formState.personProfileId);
+    const resolvedPersonCustody = selectedProfile
+      ? {
+          personProfileId: selectedProfile.id,
+          personName: selectedProfile.name,
+          personStatus:
+            selectedProfile.subscriptionStatus === 'subscribed_isolated' ||
+            selectedProfile.subscriptionStatus === 'native_member'
+              ? ('subscribed_isolated' as const)
+              : ('external_pending' as const),
+          addedByUserId: selectedProfile.addedByUserId || currentUser.id,
+          addedByUserName: selectedProfile.addedByUserName || currentUser.name,
+          claimedUserId:
+            selectedProfile.subscriptionStatus === 'subscribed_isolated' ||
+            selectedProfile.subscriptionStatus === 'native_member'
+              ? selectedProfile.linkedUserId
+              : undefined
+        }
+      : undefined;
 
     if (editingVehicleId) {
       const existing = logisticsVehicles.find((v) => v.id === editingVehicleId);
@@ -612,8 +716,13 @@ export const LogisticsManagement: React.FC<LogisticsManagementProps> = ({
         ownerCompanyName: existing?.ownerCompanyName || currentUser.companyName,
         name: formState.name.trim(),
         category: formState.category,
+        manufacturerId: formState.manufacturerId || undefined,
+        manufacturerName: formState.manufacturerName || undefined,
+        modelId: formState.modelId || undefined,
+        modelName: formState.modelName || undefined,
         plateOrCode: formState.plateOrCode.trim() || 'بدون لوحة',
         modelYear: formState.modelYear.trim(),
+        country: formState.country.trim() || 'مصر',
         city: formState.city.trim() || 'الغردقة',
         zone: formState.zone.trim() || 'عام',
         passengerCapacity: Math.max(1, formState.passengerCapacity),
@@ -621,13 +730,18 @@ export const LogisticsManagement: React.FC<LogisticsManagementProps> = ({
         driverPhone: formState.driverPhone.trim(),
         ownershipType: formState.ownershipType,
         partnerId:
-          formState.ownershipType === 'owned' ? undefined : selectedPartner?.id || undefined,
+          formState.ownershipType === 'owned'
+            ? selectedProfile?.id || undefined
+            : selectedProfile?.id || selectedPartner?.id || undefined,
         partnerName:
-          formState.ownershipType === 'owned' ? undefined : selectedPartner?.name || undefined,
+          formState.ownershipType === 'owned'
+            ? selectedProfile?.name || undefined
+            : selectedProfile?.name || selectedPartner?.name || undefined,
         partnerCompanyName:
           formState.ownershipType === 'owned'
-            ? undefined
-            : selectedPartner?.companyName || undefined,
+            ? selectedProfile?.companyName || undefined
+            : selectedProfile?.companyName || selectedPartner?.companyName || undefined,
+        personCustody: resolvedPersonCustody || existing?.personCustody,
         pricePerTripEGP: Math.max(0, formState.pricePerTripEGP),
         pricePerTripEUR: Math.max(0, formState.pricePerTripEUR),
         status: formState.status,
@@ -648,8 +762,13 @@ export const LogisticsManagement: React.FC<LogisticsManagementProps> = ({
         ownerCompanyName: currentUser.companyName,
         name: formState.name.trim(),
         category: formState.category,
+        manufacturerId: formState.manufacturerId || undefined,
+        manufacturerName: formState.manufacturerName || undefined,
+        modelId: formState.modelId || undefined,
+        modelName: formState.modelName || undefined,
         plateOrCode: formState.plateOrCode.trim() || 'LOG-NEW',
         modelYear: formState.modelYear.trim(),
+        country: formState.country.trim() || 'مصر',
         city: formState.city.trim() || 'الغردقة',
         zone: formState.zone.trim() || 'عام',
         passengerCapacity: Math.max(1, formState.passengerCapacity),
@@ -657,13 +776,18 @@ export const LogisticsManagement: React.FC<LogisticsManagementProps> = ({
         driverPhone: formState.driverPhone.trim(),
         ownershipType: formState.ownershipType,
         partnerId:
-          formState.ownershipType === 'owned' ? undefined : selectedPartner?.id || undefined,
+          formState.ownershipType === 'owned'
+            ? selectedProfile?.id || undefined
+            : selectedProfile?.id || selectedPartner?.id || undefined,
         partnerName:
-          formState.ownershipType === 'owned' ? undefined : selectedPartner?.name || undefined,
+          formState.ownershipType === 'owned'
+            ? selectedProfile?.name || undefined
+            : selectedProfile?.name || selectedPartner?.name || undefined,
         partnerCompanyName:
           formState.ownershipType === 'owned'
-            ? undefined
-            : selectedPartner?.companyName || undefined,
+            ? selectedProfile?.companyName || undefined
+            : selectedProfile?.companyName || selectedPartner?.companyName || undefined,
+        personCustody: resolvedPersonCustody,
         pricePerTripEGP: Math.max(0, formState.pricePerTripEGP),
         pricePerTripEUR: Math.max(0, formState.pricePerTripEUR),
         status: formState.status,
@@ -847,12 +971,37 @@ export const LogisticsManagement: React.FC<LogisticsManagementProps> = ({
                     </label>
                     <select
                       value={formState.category}
-                      onChange={(e) =>
+                      onChange={(e) => {
+                        const nextCategory = e.target.value as LogisticsVehicleCategory;
+                        const categoryUnitKindMap: Record<LogisticsVehicleCategory, string[]> = {
+                          tourist_bus: ['uk-tourist-bus', 'uk-car'],
+                          hiace_van: ['uk-hiace-van', 'uk-car'],
+                          coaster_minibus: ['uk-coaster-bus', 'uk-car'],
+                          limousine_sedan: ['uk-car'],
+                          suv_4x4: ['uk-logistics-4x4', 'uk-safari-4x4', 'uk-car'],
+                          boat_shuttle: ['uk-shuttle-boat', 'uk-launch', 'uk-sea-boat', 'uk-nile-boat']
+                        };
+                        const nextKindIds = categoryUnitKindMap[nextCategory] || [];
+                        const currentMfg = manufacturers.find(
+                          (m) =>
+                            m.id === formState.manufacturerId ||
+                            m.name === formState.manufacturerName
+                        );
+                        const keepMfg =
+                          nextKindIds.length === 0 ||
+                          (currentMfg &&
+                            (currentMfg.linkedUnitKindIds ?? []).some((id) =>
+                              nextKindIds.includes(id)
+                            ));
                         setFormState({
                           ...formState,
-                          category: e.target.value as LogisticsVehicleCategory
-                        })
-                      }
+                          category: nextCategory,
+                          manufacturerId: keepMfg ? formState.manufacturerId : '',
+                          manufacturerName: keepMfg ? formState.manufacturerName : '',
+                          modelId: keepMfg ? formState.modelId : '',
+                          modelName: keepMfg ? formState.modelName : ''
+                        });
+                      }}
                       className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white"
                     >
                       {Object.entries(LOGISTICS_CATEGORY_LABELS).map(([k, label]) => (
@@ -878,27 +1027,270 @@ export const LogisticsManagement: React.FC<LogisticsManagementProps> = ({
                     />
                   </div>
 
-                  <div>
-                    <label className="text-slate-300 font-semibold block mb-1">المدينة</label>
-                    <input
-                      type="text"
-                      value={formState.city}
-                      onChange={(e) => setFormState({ ...formState, city: e.target.value })}
-                      placeholder="الغردقة / شرم الشيخ / الجونة..."
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white"
-                    />
-                  </div>
+                  {/* DB-Backed Manufacturer, Model, Year */}
+                  {(() => {
+                    const categoryUnitKindMap: Record<LogisticsVehicleCategory, string[]> = {
+                      tourist_bus: ['uk-tourist-bus', 'uk-car'],
+                      hiace_van: ['uk-hiace-van', 'uk-car'],
+                      coaster_minibus: ['uk-coaster-bus', 'uk-car'],
+                      limousine_sedan: ['uk-car'],
+                      suv_4x4: ['uk-logistics-4x4', 'uk-safari-4x4', 'uk-car'],
+                      boat_shuttle: ['uk-shuttle-boat', 'uk-launch', 'uk-sea-boat', 'uk-nile-boat']
+                    };
+                    const targetKindIds = categoryUnitKindMap[formState.category] || [];
+                    const logisticsManufacturers = manufacturers.filter((m) => {
+                      const matchesScope =
+                        m.applicableTo === 'logistics' ||
+                        m.applicableTo === 'both' ||
+                        targetKindIds.some((id) => (m.linkedUnitKindIds ?? []).includes(id));
+                      if (!matchesScope) return false;
+                      if (targetKindIds.length === 0) return true;
+                      return (m.linkedUnitKindIds ?? []).some((id) => targetKindIds.includes(id));
+                    });
+                    const resolvedMfg =
+                      logisticsManufacturers.find((m) => m.id === formState.manufacturerId) ||
+                      logisticsManufacturers.find((m) => m.name === formState.manufacturerName) ||
+                      null;
+                    const selectedMfgId = resolvedMfg?.id || formState.manufacturerId || '';
+                    const availableModels = selectedMfgId
+                      ? manufacturerModels.filter(
+                          (mdl) =>
+                            mdl.manufacturerId === selectedMfgId &&
+                            (!mdl.unitKindId ||
+                              targetKindIds.length === 0 ||
+                              targetKindIds.includes(mdl.unitKindId))
+                        )
+                      : [];
+                    const resolvedModel =
+                      availableModels.find((mdl) => mdl.id === formState.modelId) ||
+                      availableModels.find((mdl) => mdl.name === formState.modelName) ||
+                      null;
+                    const selectedModelId = resolvedModel?.id || formState.modelId || '';
 
-                  <div>
-                    <label className="text-slate-300 font-semibold block mb-1">نطاق التغطية</label>
-                    <input
-                      type="text"
-                      value={formState.zone}
-                      onChange={(e) => setFormState({ ...formState, zone: e.target.value })}
-                      placeholder="مثال: المطار - سهل حشيش - مكادي"
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white"
-                    />
-                  </div>
+                    const resolvedCountry =
+                      countriesRef.find((c) => c.name === formState.country) ||
+                      countriesRef[0] ||
+                      null;
+                    const availableCities = resolvedCountry
+                      ? citiesRef.filter((ct) => ct.countryId === resolvedCountry.id)
+                      : citiesRef;
+                    const resolvedCity =
+                      availableCities.find((ct) => ct.name === formState.city) ||
+                      citiesRef.find((ct) => ct.name === formState.city) ||
+                      null;
+                    const availableMeetingPoints = resolvedCity
+                      ? meetingPointsRef.filter((mp) => mp.cityId === resolvedCity.id)
+                      : meetingPointsRef;
+                    const resolvedPoint =
+                      availableMeetingPoints.find((mp) => mp.name === formState.zone) || null;
+
+                    return (
+                      <>
+                        <ReferenceSelectWithAdd
+                          label="الشركة المصنعة (مثال: نيسان، تويوتا...)"
+                          value={selectedMfgId}
+                          options={logisticsManufacturers.map((m) => ({
+                            id: m.id,
+                            label: m.name
+                          }))}
+                          placeholder="-- اختر الشركة المصنعة --"
+                          addLabel="إضافة شركة مصنعة جديدة"
+                          addInputPlaceholder="مثال: نيسان، مرسيدس، كيا..."
+                          legacyFallbackLabel={formState.manufacturerName}
+                          selectClassName="rounded-xl"
+                          onChange={(mfgId) => {
+                            const mfg = manufacturers.find((m) => m.id === mfgId);
+                            setFormState({
+                              ...formState,
+                              manufacturerId: mfg ? mfg.id : '',
+                              manufacturerName: mfg ? mfg.name : '',
+                              modelId: '',
+                              modelName: ''
+                            });
+                          }}
+                          onAddNew={(newName) => {
+                            if (!onCreateManufacturer) return;
+                            const created = onCreateManufacturer({
+                              name: newName,
+                              applicableTo: 'logistics',
+                              linkedUnitKindIds: targetKindIds.slice(0, 1)
+                            });
+                            setFormState({
+                              ...formState,
+                              manufacturerId: created.id,
+                              manufacturerName: created.name,
+                              modelId: '',
+                              modelName: ''
+                            });
+                          }}
+                        />
+
+                        <ReferenceSelectWithAdd
+                          label="الموديل (مثال: صني، هاي إس...)"
+                          value={selectedModelId}
+                          disabled={!selectedMfgId}
+                          disabledHint="-- اختر الشركة المصنعة أولاً --"
+                          options={availableModels.map((mdl) => ({
+                            id: mdl.id,
+                            label: mdl.name
+                          }))}
+                          placeholder="-- اختر الموديل --"
+                          addLabel="إضافة موديل جديد"
+                          addInputPlaceholder="مثال: صني، باترول، كوستر..."
+                          legacyFallbackLabel={formState.modelName}
+                          selectClassName="rounded-xl"
+                          onChange={(mdlId) => {
+                            const mdl = availableModels.find((m) => m.id === mdlId);
+                            setFormState({
+                              ...formState,
+                              modelId: mdl ? mdl.id : '',
+                              modelName: mdl ? mdl.name : ''
+                            });
+                          }}
+                          onAddNew={(newName) => {
+                            if (!onCreateManufacturerModel || !selectedMfgId) return;
+                            const created = onCreateManufacturerModel({
+                              manufacturerId: selectedMfgId,
+                              name: newName,
+                              applicableTo: 'logistics',
+                              unitKindId: targetKindIds[0]
+                            });
+                            setFormState({
+                              ...formState,
+                              modelId: created.id,
+                              modelName: created.name
+                            });
+                          }}
+                        />
+
+                        <div>
+                          <label className="text-slate-300 font-semibold block mb-1">
+                            سنة الصنع
+                          </label>
+                          <input
+                            type="text"
+                            value={formState.modelYear}
+                            onChange={(e) =>
+                              setFormState({ ...formState, modelYear: e.target.value })
+                            }
+                            placeholder="مثال: 2025"
+                            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono"
+                          />
+                        </div>
+
+                        <ReferenceSelectWithAdd
+                          label="الدولة"
+                          value={resolvedCountry?.id || formState.country}
+                          options={countriesRef.map((c) => ({ id: c.id, label: c.name }))}
+                          placeholder="-- اختر الدولة --"
+                          addLabel="إضافة دولة جديدة"
+                          addInputPlaceholder="اسم الدولة الجديدة..."
+                          legacyFallbackLabel={formState.country}
+                          selectClassName="rounded-xl"
+                          onChange={(cntId) => {
+                            const cnt = countriesRef.find((c) => c.id === cntId);
+                            const nextCountryName = cnt ? cnt.name : cntId;
+                            const nextCities = cnt
+                              ? citiesRef.filter((ct) => ct.countryId === cnt.id)
+                              : [];
+                            setFormState({
+                              ...formState,
+                              country: nextCountryName,
+                              city: nextCities[0]?.name || '',
+                              zone: ''
+                            });
+                          }}
+                          onAddNew={(newName) => {
+                            if (!onCreateCountryRef) {
+                              setFormState({ ...formState, country: newName });
+                              return;
+                            }
+                            const created = onCreateCountryRef({ name: newName });
+                            setFormState({
+                              ...formState,
+                              country: created.name,
+                              city: '',
+                              zone: ''
+                            });
+                          }}
+                        />
+
+                        <ReferenceSelectWithAdd
+                          label="المدينة"
+                          value={resolvedCity?.id || formState.city}
+                          options={availableCities.map((ct) => ({ id: ct.id, label: ct.name }))}
+                          placeholder="-- اختر المدينة --"
+                          addLabel="إضافة مدينة جديدة"
+                          addInputPlaceholder="مثال: الغردقة، دهب، العلمين..."
+                          legacyFallbackLabel={formState.city}
+                          selectClassName="rounded-xl"
+                          onChange={(ctId) => {
+                            const ct = availableCities.find((x) => x.id === ctId);
+                            const nextCityName = ct ? ct.name : ctId;
+                            setFormState({
+                              ...formState,
+                              city: nextCityName
+                            });
+                          }}
+                          onAddNew={(newName) => {
+                            if (!onCreateCityRef) {
+                              setFormState({ ...formState, city: newName });
+                              return;
+                            }
+                            const targetCountryId =
+                              resolvedCountry?.id || countriesRef[0]?.id || 'cnt-eg';
+                            const created = onCreateCityRef({
+                              countryId: targetCountryId,
+                              name: newName
+                            });
+                            setFormState({
+                              ...formState,
+                              city: created.name
+                            });
+                          }}
+                        />
+
+                        <ReferenceSelectWithAdd
+                          label="نقطة الالتقاء / نطاق التغطية"
+                          value={resolvedPoint?.id || formState.zone}
+                          options={availableMeetingPoints.map((mp) => ({
+                            id: mp.id,
+                            label: mp.name
+                          }))}
+                          placeholder="-- اختر نقطة الالتقاء --"
+                          addLabel="إضافة نقطة التقاء جديدة"
+                          addInputPlaceholder="مثال: مطار الغردقة الدولي، سهل حشيش..."
+                          legacyFallbackLabel={formState.zone}
+                          selectClassName="rounded-xl"
+                          onChange={(mpId) => {
+                            const mp = availableMeetingPoints.find((x) => x.id === mpId);
+                            setFormState({
+                              ...formState,
+                              zone: mp ? mp.name : mpId
+                            });
+                          }}
+                          onAddNew={(newName) => {
+                            if (!onCreateMeetingPointRef) {
+                              setFormState({ ...formState, zone: newName });
+                              return;
+                            }
+                            const targetCityId =
+                              resolvedCity?.id || availableCities[0]?.id || citiesRef[0]?.id || 'cty-hrg';
+                            const created = onCreateMeetingPointRef({
+                              countryId: resolvedCountry?.id,
+                              cityId: targetCityId,
+                              name: newName,
+                              pointType: 'both'
+                            });
+                            setFormState({
+                              ...formState,
+                              zone: created.name
+                            });
+                          }}
+                        />
+                      </>
+                    );
+                  })()}
 
                   <div>
                     <label className="text-slate-300 font-semibold block mb-1">
@@ -916,6 +1308,33 @@ export const LogisticsManagement: React.FC<LogisticsManagementProps> = ({
                       }
                       className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono"
                     />
+                  </div>
+
+                  <div>
+                    <label className="text-slate-300 font-semibold block mb-1">
+                      ربط بملف السائق / مالك السيارة الموحد
+                    </label>
+                    <select
+                      value={formState.personProfileId}
+                      onChange={(e) => {
+                        const prof = personProfiles.find((p) => p.id === e.target.value);
+                        setFormState({
+                          ...formState,
+                          personProfileId: e.target.value,
+                          driverName: prof ? prof.name : formState.driverName,
+                          driverPhone: prof ? prof.phone : formState.driverPhone,
+                          ownershipType: prof ? 'partner_shared' : formState.ownershipType
+                        });
+                      }}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white"
+                    >
+                      <option value="">-- بدون ربط / إدخال السائق يدوياً --</option>
+                      {personProfiles.map((prof) => (
+                        <option key={prof.id} value={prof.id}>
+                          {prof.name} ({prof.phone})
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
                   <div>
@@ -1251,6 +1670,13 @@ export const LogisticsManagement: React.FC<LogisticsManagementProps> = ({
                               )}
                               <div>
                                 <div className="font-bold text-white">{v.name}</div>
+                                {(v.manufacturerName || v.modelName) && (
+                                  <div className="text-[11px] text-cyan-300 font-semibold">
+                                    {[v.manufacturerName, v.modelName, v.modelYear]
+                                      .filter(Boolean)
+                                      .join(' · ')}
+                                  </div>
+                                )}
                                 <div className="text-[10px] text-slate-400 font-mono">
                                   {v.plateOrCode} · {v.id}
                                 </div>
@@ -1269,7 +1695,9 @@ export const LogisticsManagement: React.FC<LogisticsManagementProps> = ({
                             {LOGISTICS_CATEGORY_LABELS[v.category]}
                           </td>
                           <td className="px-3 py-3">
-                            <div className="text-white">{v.city}</div>
+                            <div className="text-white">
+                              {v.country ? `${v.country} · ${v.city}` : v.city}
+                            </div>
                             <div className="text-[10px] text-slate-400">{v.zone}</div>
                           </td>
                           <td className="px-3 py-3 font-mono font-bold text-slate-200">
@@ -1299,6 +1727,7 @@ export const LogisticsManagement: React.FC<LogisticsManagementProps> = ({
                           </td>
                           <td className="px-3 py-3">
                             <select
+                              disabled={!vehicleBelongsToEditableUser(v, currentUser)}
                               value={v.status}
                               onChange={(e) =>
                                 onChangeVehicleStatus(
@@ -1306,7 +1735,7 @@ export const LogisticsManagement: React.FC<LogisticsManagementProps> = ({
                                   e.target.value as LogisticsVehicleStatus
                                 )
                               }
-                              className={`rounded-lg border px-2 py-1 text-[11px] font-semibold bg-slate-950 ${statusMeta.badgeCls}`}
+                              className={`rounded-lg border px-2 py-1 text-[11px] font-semibold bg-slate-950 disabled:opacity-50 ${statusMeta.badgeCls}`}
                             >
                               {Object.entries(LOGISTICS_STATUS_LABELS).map(([k, m]) => (
                                 <option key={k} value={k} className="bg-slate-900 text-white">
@@ -1316,47 +1745,53 @@ export const LogisticsManagement: React.FC<LogisticsManagementProps> = ({
                             </select>
                           </td>
                           <td className="px-3 py-3">
-                            <div className="flex items-center justify-center gap-1.5">
-                              <button
-                                type="button"
-                                onClick={() => handleOpenEditInline(v)}
-                                className="p-1.5 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 text-cyan-400 cursor-pointer"
-                                title="تعديل"
-                              >
-                                <Edit3 className="w-3.5 h-3.5" />
-                              </button>
-                              {confirmDeleteId === v.id ? (
-                                <div className="flex items-center gap-1">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      onDeleteVehicle(v.id);
-                                      setConfirmDeleteId(null);
-                                      showToast(`تم حذف وسيلة النقل «${v.name}»`);
-                                    }}
-                                    className="px-2 py-1 rounded bg-rose-600 text-white text-[10px] font-bold cursor-pointer"
-                                  >
-                                    تأكيد
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => setConfirmDeleteId(null)}
-                                    className="px-2 py-1 rounded bg-slate-800 text-slate-300 text-[10px] cursor-pointer"
-                                  >
-                                    إلغاء
-                                  </button>
-                                </div>
-                              ) : (
+                            {vehicleBelongsToEditableUser(v, currentUser) ? (
+                              <div className="flex items-center justify-center gap-1.5">
                                 <button
                                   type="button"
-                                  onClick={() => setConfirmDeleteId(v.id)}
-                                  className="p-1.5 rounded-lg bg-slate-950 hover:bg-rose-950 border border-slate-800 text-rose-400 cursor-pointer"
-                                  title="حذف"
+                                  onClick={() => handleOpenEditInline(v)}
+                                  className="p-1.5 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-800 text-cyan-400 cursor-pointer"
+                                  title="تعديل"
                                 >
-                                  <Trash2 className="w-3.5 h-3.5" />
+                                  <Edit3 className="w-3.5 h-3.5" />
                                 </button>
-                              )}
-                            </div>
+                                {confirmDeleteId === v.id ? (
+                                  <div className="flex items-center gap-1">
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        onDeleteVehicle(v.id);
+                                        setConfirmDeleteId(null);
+                                        showToast(`تم حذف وسيلة النقل «${v.name}»`);
+                                      }}
+                                      className="px-2 py-1 rounded bg-rose-600 text-white text-[10px] font-bold cursor-pointer"
+                                    >
+                                      تأكيد
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => setConfirmDeleteId(null)}
+                                      className="px-2 py-1 rounded bg-slate-800 text-slate-300 text-[10px] cursor-pointer"
+                                    >
+                                      إلغاء
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => setConfirmDeleteId(v.id)}
+                                    className="p-1.5 rounded-lg bg-slate-950 hover:bg-rose-950 border border-slate-800 text-rose-400 cursor-pointer"
+                                    title="حذف"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-[10px] text-amber-300 font-semibold block text-center">
+                                معزول للمالك
+                              </span>
+                            )}
                           </td>
                         </tr>
                       );

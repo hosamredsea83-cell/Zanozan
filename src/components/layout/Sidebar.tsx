@@ -3,42 +3,49 @@ import {
   LayoutDashboard, Compass, PlusCircle, Edit3, Gift, Tag, 
   CreditCard, Wallet, ReceiptText, GitCompare, ShieldCheck, 
   BarChart3, ChevronDown, ChevronLeft, ChevronRight, Anchor, MapPin, Layers, Map, Clock, Store, PanelRightClose, PanelRightOpen, Wrench, SlidersHorizontal,
-  CalendarCheck, Ship, ClipboardList, Heart, FolderTree, Calculator, ListChecks, Users, Truck, ShieldAlert
+  CalendarCheck, Ship, ClipboardList, Heart, FolderTree, Calculator, ListChecks, Users, Truck, ShieldAlert, Sparkles, Palette, Coins, Utensils, Globe, Navigation, CalendarRange, UserCog
 } from 'lucide-react';
-import { AppUser } from '../../types/auth';
+import { AppUser, canUserAccessNavKey } from '../../types/auth';
 
 export type NavigationItemKey = 
   | 'dashboard'
+  | 'customer_storefront'
+  | 'unified_reference'
   | 'activity_add'
   | 'activity_collections'
-  | 'activity_categories'
   | 'activity_manage'
   | 'activity_marketplace'
   | 'activity_offers'
   | 'activity_discounts'
   | 'activity_pricing_properties'
-  | 'activity_custom_specs'
   | 'pricing_tool'
   | 'activity_favorites'
-  | 'activity_meta_library'
   | 'activity_equipment'
   | 'activity_equipment_add'
   | 'activity_equipment_manage'
-  | 'activity_equipment_types'
   | 'activity_equipment_partners'
+  | 'equipment_occupancy'
+  | 'person_profiles'
   | 'logistics_manage'
   | 'logistics_add'
   | 'logistics_transfers'
+  | 'driver_portal'
   | 'finance_wallets'
   | 'finance_cashier'
+  | 'operational_costs'
+  | 'partner_earnings'
+  | 'trip_add'
   | 'compare_activities'
   | 'trips_combo'
   | 'trips_schedule'
   | 'bookings_activities'
   | 'bookings_trips'
+  | 'bookings_in_trip_requests'
   | 'performance_approvals'
   | 'reports'
-  | 'platform_audit_logs';
+  | 'platform_audit_logs'
+  | 'user_management'
+  | 'owner_theme_studio';
 
 interface SidebarProps {
   currentKey: NavigationItemKey;
@@ -47,13 +54,20 @@ interface SidebarProps {
   onCloseMobile: () => void;
   publishedCount: number;
   pendingReviewCount: number;
+  tripsCount?: number;
   equipmentCount?: number;
   partnersCount?: number;
   logisticsCount?: number;
   pendingBookingsCount?: number;
+  inTripRequestsCount?: number;
   favoritesCount?: number;
   auditLogsCount?: number;
+  operationalCostsCount?: number;
+  personProfilesCount?: number;
+  pendingClaimRequestsCount?: number;
+  managedUsersCount?: number;
   currentUser?: AppUser;
+  customAllowedNavKeys?: Set<string> | null;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
 }
@@ -65,13 +79,20 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onCloseMobile,
   publishedCount,
   pendingReviewCount,
+  tripsCount = 0,
   equipmentCount = 0,
   partnersCount = 0,
   logisticsCount = 0,
   pendingBookingsCount = 0,
+  inTripRequestsCount = 0,
   favoritesCount = 0,
   auditLogsCount = 0,
+  operationalCostsCount = 0,
+  personProfilesCount = 0,
+  pendingClaimRequestsCount = 0,
+  managedUsersCount = 0,
   currentUser,
+  customAllowedNavKeys = null,
   isCollapsed = false,
   onToggleCollapse
 }) => {
@@ -87,6 +108,9 @@ export const Sidebar: React.FC<SidebarProps> = ({
     onSelectKey(key);
     onCloseMobile();
   };
+
+  const navVisible = (key: NavigationItemKey) =>
+    canUserAccessNavKey(currentUser, key, customAllowedNavKeys);
 
   return (
     <>
@@ -144,65 +168,147 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* Navigation Menu List */}
         <div className="flex-1 overflow-y-auto px-2.5 py-4 space-y-1.5 text-xs font-medium">
           {/* 1. لوحة التحكم */}
-          <button
-            onClick={() => handleItemClick('dashboard')}
-            title="لوحة التحكم"
-            className={`w-full flex items-center ${isCollapsed ? 'justify-center px-0' : 'justify-between px-3'} py-2.5 rounded-xl transition-all ${
-              currentKey === 'dashboard'
-                ? 'bg-cyan-600/20 text-cyan-300 font-bold border border-cyan-500/30 shadow-sm'
-                : 'text-slate-300 hover:text-white hover:bg-slate-900'
-            }`}
-          >
-            <div className="flex items-center gap-2.5">
-              <LayoutDashboard className="w-4 h-4 text-cyan-400 shrink-0" />
-              {!isCollapsed && <span>لوحة التحكم</span>}
-            </div>
-            {!isCollapsed && <span className="text-[10px] text-slate-500 font-mono">رئيسي</span>}
-          </button>
+          {navVisible('dashboard') && (
+            <button
+              onClick={() => handleItemClick('dashboard')}
+              title="لوحة التحكم"
+              className={`w-full flex items-center ${isCollapsed ? 'justify-center px-0' : 'justify-between px-3'} py-2.5 rounded-xl transition-all ${
+                currentKey === 'dashboard'
+                  ? 'bg-cyan-600/20 text-cyan-300 font-bold border border-cyan-500/30 shadow-sm'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-900'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <LayoutDashboard className="w-4 h-4 text-cyan-400 shrink-0" />
+                {!isCollapsed && <span>لوحة التحكم</span>}
+              </div>
+              {!isCollapsed && <span className="text-[10px] text-slate-500 font-mono">رئيسي</span>}
+            </button>
+          )}
 
           {/* المفضلة (بند رئيسي مستقل) */}
-          <button
-            onClick={() => handleItemClick('activity_favorites')}
-            title={currentUser ? `المفضلة الخاصة بحساب ${currentUser.name}` : 'المفضلة وتنظيم قوائم الاختيار'}
-            className={`w-full flex items-center ${isCollapsed ? 'justify-center px-0' : 'justify-between px-3'} py-2.5 rounded-xl transition-all ${
-              currentKey === 'activity_favorites'
-                ? 'bg-cyan-600/20 text-cyan-300 font-bold border border-cyan-500/30 shadow-sm'
-                : 'text-slate-300 hover:text-white hover:bg-slate-900'
-            }`}
-          >
-            <div className="flex items-center gap-2.5">
-              <Heart className="w-4 h-4 text-rose-400 shrink-0" />
-              {!isCollapsed && <span>المفضلة</span>}
-            </div>
-            {!isCollapsed && (
-              favoritesCount > 0 ? (
-                <span className="text-[10px] bg-rose-950/80 text-rose-300 border border-rose-700/40 px-1.5 py-0.2 rounded font-mono font-bold">
-                  {favoritesCount}
+          {navVisible('activity_favorites') && (
+            <button
+              onClick={() => handleItemClick('activity_favorites')}
+              title={currentUser ? `المفضلة الخاصة بحساب ${currentUser.name}` : 'المفضلة وتنظيم قوائم الاختيار'}
+              className={`w-full flex items-center ${isCollapsed ? 'justify-center px-0' : 'justify-between px-3'} py-2.5 rounded-xl transition-all ${
+                currentKey === 'activity_favorites'
+                  ? 'bg-cyan-600/20 text-cyan-300 font-bold border border-cyan-500/30 shadow-sm'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-900'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <Heart className="w-4 h-4 text-rose-400 shrink-0" />
+                {!isCollapsed && <span>المفضلة</span>}
+              </div>
+              {!isCollapsed && (
+                favoritesCount > 0 ? (
+                  <span className="text-[10px] bg-rose-950/80 text-rose-300 border border-rose-700/40 px-1.5 py-0.2 rounded font-mono font-bold">
+                    {favoritesCount}
+                  </span>
+                ) : (
+                  <span className="text-[10px] text-slate-500 font-mono">رئيسي</span>
+                )
+              )}
+            </button>
+          )}
+
+          {/* بوابة العميل والمتجر المباشر */}
+          {navVisible('customer_storefront') && (
+            <button
+              onClick={() => handleItemClick('customer_storefront')}
+              title="بوابة العميل والمتجر المباشر"
+              className={`w-full flex items-center ${isCollapsed ? 'justify-center px-0' : 'justify-between px-3'} py-2.5 rounded-xl transition-all ${
+                currentKey === 'customer_storefront'
+                  ? 'bg-emerald-600/20 text-emerald-300 font-bold border border-emerald-500/30 shadow-sm'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-900'
+              }`}
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <Globe className="w-4 h-4 text-emerald-400 shrink-0" />
+                {!isCollapsed && <span className="truncate">بوابة العميل والمتجر</span>}
+              </div>
+              {!isCollapsed && (
+                <span className="text-[9px] bg-emerald-950 text-emerald-300 border border-emerald-800/40 px-1.5 py-0.5 rounded font-mono shrink-0">
+                  جمهور
                 </span>
-              ) : (
-                <span className="text-[10px] text-slate-500 font-mono">رئيسي</span>
-              )
-            )}
-          </button>
+              )}
+            </button>
+          )}
 
           {/* أداة التسعير (رسوم خدمة المنصة والضرائب المركزية) */}
-          <button
-            onClick={() => handleItemClick('pricing_tool')}
-            title="أداة التسعير"
-            className={`w-full flex items-center ${isCollapsed ? 'justify-center px-0' : 'justify-between px-3'} py-2.5 rounded-xl transition-all ${
-              currentKey === 'pricing_tool'
-                ? 'bg-cyan-600/20 text-cyan-300 font-bold border border-cyan-500/30 shadow-sm'
-                : 'text-slate-300 hover:text-white hover:bg-slate-900'
-            }`}
-          >
-            <div className="flex items-center gap-2.5">
-              <Calculator className="w-4 h-4 text-emerald-400 shrink-0" />
-              {!isCollapsed && <span>أداة التسعير</span>}
-            </div>
-            {!isCollapsed && <span className="text-[10px] text-slate-500 font-mono">رسوم · ضرائب</span>}
-          </button>
+          {navVisible('pricing_tool') && (
+            <button
+              onClick={() => handleItemClick('pricing_tool')}
+              title="أداة التسعير"
+              className={`w-full flex items-center ${isCollapsed ? 'justify-center px-0' : 'justify-between px-3'} py-2.5 rounded-xl transition-all ${
+                currentKey === 'pricing_tool'
+                  ? 'bg-cyan-600/20 text-cyan-300 font-bold border border-cyan-500/30 shadow-sm'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-900'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <Calculator className="w-4 h-4 text-emerald-400 shrink-0" />
+                {!isCollapsed && <span>أداة التسعير</span>}
+              </div>
+              {!isCollapsed && <span className="text-[10px] text-slate-500 font-mono">رسوم · ضرائب</span>}
+            </button>
+          )}
+
+          {/* المرجع الموحد */}
+          {navVisible('unified_reference') && (
+            <button
+              onClick={() => handleItemClick('unified_reference')}
+              title="المرجع الموحد: الفئات · المواصفات · المشمولات · المعدات · الإضافات"
+              className={`w-full flex items-center ${isCollapsed ? 'justify-center px-0' : 'justify-between px-3'} py-2.5 rounded-xl transition-all ${
+                currentKey === 'unified_reference'
+                  ? 'bg-cyan-600/20 text-cyan-300 font-bold border border-cyan-500/30 shadow-sm'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-900'
+              }`}
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <FolderTree className="w-4 h-4 text-cyan-400 shrink-0" />
+                {!isCollapsed && <span className="truncate">المرجع الموحد</span>}
+              </div>
+              {!isCollapsed && (
+                <span className="text-[9px] bg-cyan-950 text-cyan-300 border border-cyan-800/40 px-1.5 py-0.5 rounded font-mono shrink-0">
+                  مركزي
+                </span>
+              )}
+            </button>
+          )}
+
+          {/* الملفات الشخصية والموردين */}
+          {navVisible('person_profiles') && (
+            <button
+              onClick={() => handleItemClick('person_profiles')}
+              title="الملفات الشخصية والموردين"
+              className={`w-full flex items-center ${isCollapsed ? 'justify-center px-0' : 'justify-between px-3'} py-2.5 rounded-xl transition-all ${
+                currentKey === 'person_profiles' || currentKey === 'activity_equipment_partners'
+                  ? 'bg-cyan-600/20 text-cyan-300 font-bold border border-cyan-500/30 shadow-sm'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-900'
+              }`}
+            >
+              <div className="flex items-center gap-2.5 min-w-0">
+                <Users className="w-4 h-4 text-cyan-400 shrink-0" />
+                {!isCollapsed && <span className="truncate">الملفات الشخصية والموردين</span>}
+              </div>
+              {!isCollapsed && (
+                pendingClaimRequestsCount > 0 ? (
+                  <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1.5 py-0.2 rounded font-mono font-bold shrink-0">
+                    {pendingClaimRequestsCount} طلب
+                  </span>
+                ) : (
+                  <span className="text-[10px] bg-slate-800 text-cyan-300 px-1.5 py-0.2 rounded font-mono shrink-0">
+                    {personProfilesCount || partnersCount}
+                  </span>
+                )
+              )}
+            </button>
+          )}
 
           {/* 2. إدارة نشاط (Accordion / Stacked in collapsed mode) */}
+          {(['activity_add', 'activity_collections', 'activity_manage', 'activity_marketplace', 'activity_offers', 'activity_discounts', 'activity_pricing_properties'] as NavigationItemKey[]).some(navVisible) && (
           <div className="pt-2">
             {!isCollapsed ? (
               <button
@@ -228,6 +334,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {(activitiesOpen || isCollapsed) && (
               <div className={`space-y-1 ${!isCollapsed ? 'pr-3 pt-1 border-0 mr-2' : 'flex flex-col items-center'}`}>
                 {/* إضافة نشاط */}
+                {navVisible('activity_add') && (
                 <button
                   onClick={() => handleItemClick('activity_add')}
                   title="إضافة نشاط جديد"
@@ -240,8 +347,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   <PlusCircle className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                   {!isCollapsed && <span>إضافة نشاط</span>}
                 </button>
+                )}
 
                 {/* إضافة مجموعات تحت بند إضافة نشاط */}
+                {navVisible('activity_collections') && (
                 <button
                   onClick={() => handleItemClick('activity_collections')}
                   title="إضافة مجموعات وباقات سياحية"
@@ -261,22 +370,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     </div>
                   )}
                 </button>
-
-                {/* إدارة التصنيفات */}
-                <button
-                  onClick={() => handleItemClick('activity_categories')}
-                  title="إدارة التصنيفات"
-                  className={`flex items-center ${isCollapsed ? 'justify-center w-10 h-10 p-0' : 'w-full gap-2 px-3 py-2'} rounded-lg transition-colors ${
-                    currentKey === 'activity_categories'
-                      ? 'bg-cyan-500/15 text-cyan-300 font-bold border border-cyan-500/20'
-                      : 'text-slate-400 hover:text-slate-100 hover:bg-slate-900/60'
-                  }`}
-                >
-                  <FolderTree className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
-                  {!isCollapsed && <span>إدارة التصنيفات</span>}
-                </button>
+                )}
 
                 {/* تعديل نشاط */}
+                {navVisible('activity_manage') && (
                 <button
                   onClick={() => handleItemClick('activity_manage')}
                   title="تعديل وإدارة الأنشطة"
@@ -296,8 +393,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     </span>
                   )}
                 </button>
+                )}
 
                 {/* متجر الأنشطة */}
+                {navVisible('activity_marketplace') && (
                 <button
                   onClick={() => handleItemClick('activity_marketplace')}
                   title="متجر الأنشطة"
@@ -317,8 +416,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     </span>
                   )}
                 </button>
+                )}
 
                 {/* العروض */}
+                {navVisible('activity_offers') && (
                 <button
                   onClick={() => handleItemClick('activity_offers')}
                   title="العروض الموسمية"
@@ -331,8 +432,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   <Gift className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                   {!isCollapsed && <span>العروض الموسمية</span>}
                 </button>
+                )}
 
                 {/* التخفيضات */}
+                {navVisible('activity_discounts') && (
                 <button
                   onClick={() => handleItemClick('activity_discounts')}
                   title="التخفيضات والأسعار"
@@ -345,8 +448,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   <Tag className="w-3.5 h-3.5 text-rose-400 shrink-0" />
                   {!isCollapsed && <span>التخفيضات والأسعار</span>}
                 </button>
+                )}
 
                 {/* خصائص السعر */}
+                {navVisible('activity_pricing_properties') && (
                 <button
                   onClick={() => handleItemClick('activity_pricing_properties')}
                   title="خصائص السعر"
@@ -359,25 +464,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   <SlidersHorizontal className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                   {!isCollapsed && <span>خصائص السعر</span>}
                 </button>
-
-                {/* ادارة المواصفات الفنية مخصصة */}
-                <button
-                  onClick={() => handleItemClick('activity_custom_specs')}
-                  title="ادارة المواصفات الفنية مخصصة"
-                  className={`flex items-center ${isCollapsed ? 'justify-center w-10 h-10 p-0' : 'w-full gap-2 px-3 py-2'} rounded-lg transition-colors ${
-                    currentKey === 'activity_custom_specs'
-                      ? 'bg-cyan-500/15 text-cyan-300 font-bold border border-cyan-500/20'
-                      : 'text-slate-400 hover:text-slate-100 hover:bg-slate-900/60'
-                  }`}
-                >
-                  <ListChecks className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
-                  {!isCollapsed && <span>ادارة المواصفات الفنية مخصصة</span>}
-                </button>
+                )}
               </div>
             )}
           </div>
+          )}
 
-          {/* 3. إدارة المعدات (قسم مستقل يضم إدارة المعدات وخصائص المعدات) */}
+          {/* 3. إدارة المعدات (قسم مستقل يضم إدارة المعدات وخصائص المعدات وتقويم الإشغال) */}
+          {(['activity_equipment_add', 'activity_equipment_manage', 'activity_equipment', 'equipment_occupancy'] as NavigationItemKey[]).some(navVisible) && (
           <div className="pt-2">
             {!isCollapsed ? (
               <button
@@ -403,6 +497,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {(equipmentOpen || isCollapsed) && (
               <div className={`space-y-1 ${!isCollapsed ? 'pr-3 pt-1 border-0 mr-2' : 'flex flex-col items-center'}`}>
                 {/* إضافة معدة */}
+                {navVisible('activity_equipment_add') && (
                 <button
                   onClick={() => handleItemClick('activity_equipment_add')}
                   title="إضافة معدة"
@@ -415,8 +510,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   <PlusCircle className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
                   {!isCollapsed && <span>إضافة معدة</span>}
                 </button>
+                )}
 
                 {/* تعديل وادارة المعدات */}
+                {navVisible('activity_equipment_manage') && (
                 <button
                   onClick={() => handleItemClick('activity_equipment_manage')}
                   title="تعديل وادارة المعدات"
@@ -436,8 +533,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     </span>
                   )}
                 </button>
+                )}
 
                 {/* سجل وإدارة المعدات */}
+                {navVisible('activity_equipment') && (
                 <button
                   onClick={() => handleItemClick('activity_equipment')}
                   title="سجل وإدارة المعدات"
@@ -457,60 +556,55 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     </span>
                   )}
                 </button>
+                )}
 
-                {/* خصائص المعدات */}
-                <button
-                  onClick={() => handleItemClick('activity_meta_library')}
-                  title="خصائص المعدات"
-                  className={`flex items-center ${isCollapsed ? 'justify-center w-10 h-10 p-0' : 'w-full gap-2 px-3 py-2'} rounded-lg transition-colors ${
-                    currentKey === 'activity_meta_library'
-                      ? 'bg-cyan-500/15 text-cyan-300 font-bold border border-cyan-500/20'
-                      : 'text-slate-400 hover:text-slate-100 hover:bg-slate-900/60'
-                  }`}
-                >
-                  <Layers className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
-                  {!isCollapsed && <span>خصائص المعدات</span>}
-                </button>
+                {/* تقويم الإشغال والصيانة */}
+                {navVisible('equipment_occupancy') && (
+                  <button
+                    onClick={() => handleItemClick('equipment_occupancy')}
+                    title="تقويم الإشغال والصيانة ومنع التضارب"
+                    className={`flex items-center ${isCollapsed ? 'justify-center w-10 h-10 p-0' : 'w-full justify-between px-3 py-2'} rounded-lg transition-colors ${
+                      currentKey === 'equipment_occupancy'
+                        ? 'bg-cyan-500/15 text-cyan-300 font-bold border border-cyan-500/20'
+                        : 'text-slate-400 hover:text-slate-100 hover:bg-slate-900/60'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <CalendarRange className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                      {!isCollapsed && <span className="truncate">تقويم الإشغال والصيانة</span>}
+                    </div>
+                  </button>
+                )}
 
-                {/* انواع المعدات والمواصفات */}
-                <button
-                  onClick={() => handleItemClick('activity_equipment_types')}
-                  title="انواع المعدات والمواصفات"
-                  className={`flex items-center ${isCollapsed ? 'justify-center w-10 h-10 p-0' : 'w-full gap-2 px-3 py-2'} rounded-lg transition-colors ${
-                    currentKey === 'activity_equipment_types'
-                      ? 'bg-cyan-500/15 text-cyan-300 font-bold border border-cyan-500/20'
-                      : 'text-slate-400 hover:text-slate-100 hover:bg-slate-900/60'
-                  }`}
-                >
-                  <SlidersHorizontal className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                  {!isCollapsed && <span>انواع المعدات والمواصفات</span>}
-                </button>
-
-                {/* سجل الشركاء */}
-                <button
-                  onClick={() => handleItemClick('activity_equipment_partners')}
-                  title="سجل الشركاء ومؤجري المعدات"
-                  className={`flex items-center ${isCollapsed ? 'justify-center w-10 h-10 p-0' : 'w-full justify-between px-3 py-2'} rounded-lg transition-colors ${
-                    currentKey === 'activity_equipment_partners'
-                      ? 'bg-cyan-500/15 text-cyan-300 font-bold border border-cyan-500/20'
-                      : 'text-slate-400 hover:text-slate-100 hover:bg-slate-900/60'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <Users className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
-                    {!isCollapsed && <span>سجل الشركاء</span>}
-                  </div>
-                  {!isCollapsed && partnersCount > 0 && (
-                    <span className="text-[10px] bg-slate-800 px-1.5 py-0.2 rounded font-mono text-cyan-300">
-                      {partnersCount}
-                    </span>
-                  )}
-                </button>
+                {/* الملفات الشخصية والموردين (موحدة بدلاً من الشاشة المكررة) */}
+                {navVisible('person_profiles') && (
+                  <button
+                    onClick={() => handleItemClick('person_profiles')}
+                    title="الملفات الشخصية والموردين ومؤجري المعدات"
+                    className={`flex items-center ${isCollapsed ? 'justify-center w-10 h-10 p-0' : 'w-full justify-between px-3 py-2'} rounded-lg transition-colors ${
+                      currentKey === 'person_profiles' || currentKey === 'activity_equipment_partners'
+                        ? 'bg-cyan-500/15 text-cyan-300 font-bold border border-cyan-500/20'
+                        : 'text-slate-400 hover:text-slate-100 hover:bg-slate-900/60'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Users className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                      {!isCollapsed && <span>الملفات الشخصية والموردين</span>}
+                    </div>
+                    {!isCollapsed && (personProfilesCount || partnersCount) > 0 && (
+                      <span className="text-[10px] bg-slate-800 px-1.5 py-0.2 rounded font-mono text-cyan-300">
+                        {personProfilesCount || partnersCount}
+                      </span>
+                    )}
+                  </button>
+                )}
               </div>
             )}
           </div>
+          )}
 
-          {/* 3B. إدارة اللوجستيات ووسائل النقل */}
+          {/* 3B. إدارة اللوجستيات ووسائل النقل والسائقين */}
+          {(['logistics_add', 'logistics_manage', 'logistics_transfers', 'driver_portal'] as NavigationItemKey[]).some(navVisible) && (
           <div className="pt-2">
             {!isCollapsed ? (
               <button
@@ -535,56 +629,81 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
             {(logisticsOpen || isCollapsed) && (
               <div className={`space-y-1 ${!isCollapsed ? 'pr-3 pt-1 border-0 mr-2' : 'flex flex-col items-center'}`}>
-                <button
-                  onClick={() => handleItemClick('logistics_add')}
-                  title="إضافة وسيلة نقل"
-                  className={`flex items-center ${isCollapsed ? 'justify-center w-10 h-10 p-0' : 'w-full gap-2 px-3 py-2'} rounded-lg transition-colors ${
-                    currentKey === 'logistics_add'
-                      ? 'bg-cyan-500/15 text-cyan-300 font-bold border border-cyan-500/20'
-                      : 'text-slate-400 hover:text-slate-100 hover:bg-slate-900/60'
-                  }`}
-                >
-                  <PlusCircle className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                  {!isCollapsed && <span>إضافة وسيلة نقل</span>}
-                </button>
+                {navVisible('logistics_add') && (
+                  <button
+                    onClick={() => handleItemClick('logistics_add')}
+                    title="إضافة وسيلة نقل"
+                    className={`flex items-center ${isCollapsed ? 'justify-center w-10 h-10 p-0' : 'w-full gap-2 px-3 py-2'} rounded-lg transition-colors ${
+                      currentKey === 'logistics_add'
+                        ? 'bg-cyan-500/15 text-cyan-300 font-bold border border-cyan-500/20'
+                        : 'text-slate-400 hover:text-slate-100 hover:bg-slate-900/60'
+                    }`}
+                  >
+                    <PlusCircle className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    {!isCollapsed && <span>إضافة وسيلة نقل</span>}
+                  </button>
+                )}
 
-                <button
-                  onClick={() => handleItemClick('logistics_manage')}
-                  title="سجل وإدارة وسائل النقل"
-                  className={`flex items-center ${isCollapsed ? 'justify-center w-10 h-10 p-0' : 'w-full justify-between px-3 py-2'} rounded-lg transition-colors ${
-                    currentKey === 'logistics_manage'
-                      ? 'bg-cyan-500/15 text-cyan-300 font-bold border border-cyan-500/20'
-                      : 'text-slate-400 hover:text-slate-100 hover:bg-slate-900/60'
-                  }`}
-                >
-                  <div className="flex items-center gap-2">
-                    <Truck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                    {!isCollapsed && <span>سجل وسائل النقل</span>}
-                  </div>
-                  {!isCollapsed && (
-                    <span className="text-[10px] bg-slate-800 px-1.5 py-0.2 rounded font-mono text-emerald-300">
-                      {logisticsCount}
-                    </span>
-                  )}
-                </button>
+                {navVisible('logistics_manage') && (
+                  <button
+                    onClick={() => handleItemClick('logistics_manage')}
+                    title="سجل وإدارة وسائل النقل"
+                    className={`flex items-center ${isCollapsed ? 'justify-center w-10 h-10 p-0' : 'w-full justify-between px-3 py-2'} rounded-lg transition-colors ${
+                      currentKey === 'logistics_manage'
+                        ? 'bg-cyan-500/15 text-cyan-300 font-bold border border-cyan-500/20'
+                        : 'text-slate-400 hover:text-slate-100 hover:bg-slate-900/60'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <Truck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                      {!isCollapsed && <span>سجل وسائل النقل</span>}
+                    </div>
+                    {!isCollapsed && (
+                      <span className="text-[10px] bg-slate-800 px-1.5 py-0.2 rounded font-mono text-emerald-300">
+                        {logisticsCount}
+                      </span>
+                    )}
+                  </button>
+                )}
 
-                <button
-                  onClick={() => handleItemClick('logistics_transfers')}
-                  title="تحركات ونقل الأنشطة"
-                  className={`flex items-center ${isCollapsed ? 'justify-center w-10 h-10 p-0' : 'w-full gap-2 px-3 py-2'} rounded-lg transition-colors ${
-                    currentKey === 'logistics_transfers'
-                      ? 'bg-cyan-500/15 text-cyan-300 font-bold border border-cyan-500/20'
-                      : 'text-slate-400 hover:text-slate-100 hover:bg-slate-900/60'
-                  }`}
-                >
-                  <MapPin className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
-                  {!isCollapsed && <span>تحركات ونقل الأنشطة</span>}
-                </button>
+                {navVisible('logistics_transfers') && (
+                  <button
+                    onClick={() => handleItemClick('logistics_transfers')}
+                    title="تحركات ونقل الأنشطة"
+                    className={`flex items-center ${isCollapsed ? 'justify-center w-10 h-10 p-0' : 'w-full gap-2 px-3 py-2'} rounded-lg transition-colors ${
+                      currentKey === 'logistics_transfers'
+                        ? 'bg-cyan-500/15 text-cyan-300 font-bold border border-cyan-500/20'
+                        : 'text-slate-400 hover:text-slate-100 hover:bg-slate-900/60'
+                    }`}
+                  >
+                    <MapPin className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
+                    {!isCollapsed && <span>تحركات ونقل الأنشطة</span>}
+                  </button>
+                )}
+
+                {navVisible('driver_portal') && (
+                  <button
+                    onClick={() => handleItemClick('driver_portal')}
+                    title="تطبيق السائق الميداني (المهام اليومية)"
+                    className={`flex items-center ${isCollapsed ? 'justify-center w-10 h-10 p-0' : 'w-full justify-between px-3 py-2'} rounded-lg transition-colors ${
+                      currentKey === 'driver_portal'
+                        ? 'bg-emerald-500/15 text-emerald-300 font-bold border border-emerald-500/20'
+                        : 'text-slate-400 hover:text-slate-100 hover:bg-slate-900/60'
+                    }`}
+                  >
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Navigation className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                      {!isCollapsed && <span className="truncate">تطبيق السائق الميداني</span>}
+                    </div>
+                  </button>
+                )}
               </div>
             )}
           </div>
+          )}
 
           {/* 3. المعاملات المالية */}
+          {(['finance_wallets', 'finance_cashier', 'operational_costs', 'partner_earnings'] as NavigationItemKey[]).some(navVisible) && (
           <div className="pt-2">
             {!isCollapsed ? (
               <button
@@ -609,7 +728,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
             {(financeOpen || isCollapsed) && (
               <div className={`space-y-1 ${!isCollapsed ? 'pr-3 pt-1 border-0 mr-2' : 'flex flex-col items-center'}`}>
+                {/* مستحقاتي وأرباحي المالية */}
+                {navVisible('partner_earnings') && (
+                <button
+                  onClick={() => handleItemClick('partner_earnings')}
+                  title="مستحقاتي وأرباحي المالية"
+                  className={`flex items-center ${isCollapsed ? 'justify-center w-10 h-10 p-0' : 'w-full gap-2 px-3 py-2'} rounded-lg transition-colors ${
+                    currentKey === 'partner_earnings'
+                      ? 'bg-emerald-500/15 text-emerald-300 font-bold border border-emerald-500/20'
+                      : 'text-slate-400 hover:text-slate-100 hover:bg-slate-900/60'
+                  }`}
+                >
+                  <Coins className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  {!isCollapsed && <span>مستحقاتي وأرباحي المالية</span>}
+                </button>
+                )}
+
                 {/* المحفظة */}
+                {navVisible('finance_wallets') && (
                 <button
                   onClick={() => handleItemClick('finance_wallets')}
                   title="المحفظة والتوريد QR"
@@ -622,8 +758,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   <Wallet className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
                   {!isCollapsed && <span>المحفظة والتوريد QR</span>}
                 </button>
+                )}
 
                 {/* التحصيل */}
+                {navVisible('finance_cashier') && (
                 <button
                   onClick={() => handleItemClick('finance_cashier')}
                   title="التحصيل اليدوي والتسويات"
@@ -638,11 +776,37 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     {!isCollapsed && <span>التحصيل اليدوي والتسويات</span>}
                   </div>
                 </button>
+                )}
+
+                {/* التكلفة التشغيلية */}
+                {navVisible('operational_costs') && (
+                <button
+                  onClick={() => handleItemClick('operational_costs')}
+                  title="التكلفة التشغيلية واقتصاديات المنتج"
+                  className={`flex items-center ${isCollapsed ? 'justify-center w-10 h-10 p-0' : 'w-full justify-between px-3 py-2'} rounded-lg transition-colors ${
+                    currentKey === 'operational_costs'
+                      ? 'bg-cyan-500/15 text-cyan-300 font-bold border border-cyan-500/20'
+                      : 'text-slate-400 hover:text-slate-100 hover:bg-slate-900/60'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <Coins className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                    {!isCollapsed && <span>التكلفة التشغيلية</span>}
+                  </div>
+                  {!isCollapsed && operationalCostsCount > 0 && (
+                    <span className="text-[10px] bg-slate-800 px-1.5 py-0.2 rounded font-mono text-amber-300">
+                      {operationalCostsCount}
+                    </span>
+                  )}
+                </button>
+                )}
               </div>
             )}
           </div>
+          )}
 
           {/* 4. إدارة الرحلات */}
+          {(['trip_add', 'compare_activities', 'trips_combo', 'trips_schedule'] as NavigationItemKey[]).some(navVisible) && (
           <div className="pt-2">
             {!isCollapsed ? (
               <button
@@ -667,7 +831,31 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
             {(tripsOpen || isCollapsed) && (
               <div className={`space-y-1 ${!isCollapsed ? 'pr-3 pt-1 border-0 mr-2' : 'flex flex-col items-center'}`}>
+                {/* إنشاء رحلة */}
+                {navVisible('trip_add') && (
+                <button
+                  onClick={() => handleItemClick('trip_add')}
+                  title="إنشاء رحلة جديدة"
+                  className={`flex items-center ${isCollapsed ? 'justify-center w-10 h-10 p-0' : 'w-full justify-between px-3 py-2'} rounded-lg transition-colors ${
+                    currentKey === 'trip_add'
+                      ? 'bg-cyan-500/15 text-cyan-300 font-bold border border-cyan-500/20'
+                      : 'text-slate-400 hover:text-slate-100 hover:bg-slate-900/60'
+                  }`}
+                >
+                  <div className="flex items-center gap-2">
+                    <PlusCircle className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    {!isCollapsed && <span>إنشاء رحلة</span>}
+                  </div>
+                  {!isCollapsed && tripsCount > 0 && (
+                    <span className="text-[10px] bg-slate-800 px-1.5 py-0.2 rounded font-mono text-emerald-300">
+                      {tripsCount}
+                    </span>
+                  )}
+                </button>
+                )}
+
                 {/* اختيار نشاط */}
+                {navVisible('compare_activities') && (
                 <button
                   onClick={() => handleItemClick('compare_activities')}
                   title="اختيار نشاط (مقارنة)"
@@ -683,8 +871,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   </div>
                   {!isCollapsed && <span className="text-[9px] text-slate-400 font-mono">ياخت · خيل · سفاري</span>}
                 </button>
+                )}
 
                 {/* الرحلات المجمعة */}
+                {navVisible('trips_combo') && (
                 <button
                   onClick={() => handleItemClick('trips_combo')}
                   title="الرحلات المجمعة (Combo)"
@@ -704,8 +894,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     </span>
                   )}
                 </button>
+                )}
 
                 {/* مواعيد الانطلاق */}
+                {navVisible('trips_schedule') && (
                 <button
                   onClick={() => handleItemClick('trips_schedule')}
                   title="جدول مواعيد الانطلاق"
@@ -725,11 +917,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     </span>
                   )}
                 </button>
+                )}
               </div>
             )}
           </div>
+          )}
 
           {/* 5. إدارة الحجوزات */}
+          {(['bookings_activities', 'bookings_trips', 'bookings_in_trip_requests'] as NavigationItemKey[]).some(navVisible) && (
           <div className="pt-2">
             {!isCollapsed ? (
               <button
@@ -755,6 +950,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             {(bookingsOpen || isCollapsed) && (
               <div className={`space-y-1 ${!isCollapsed ? 'pr-3 pt-1 border-0 mr-2' : 'flex flex-col items-center'}`}>
                 {/* حجوزات الأنشطة */}
+                {navVisible('bookings_activities') && (
                 <button
                   onClick={() => handleItemClick('bookings_activities')}
                   title="حجوزات الأنشطة"
@@ -774,8 +970,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     </span>
                   )}
                 </button>
+                )}
 
                 {/* حجوزات الرحلات */}
+                {navVisible('bookings_trips') && (
                 <button
                   onClick={() => handleItemClick('bookings_trips')}
                   title="حجوزات الرحلات"
@@ -788,70 +986,144 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   <Ship className="w-3.5 h-3.5 text-cyan-400 shrink-0" />
                   {!isCollapsed && <span>حجوزات الرحلات</span>}
                 </button>
+                )}
+
+                {/* طلبات أثناء الرحلة أو النشاط */}
+                {navVisible('bookings_in_trip_requests') && (
+                <button
+                  onClick={() => handleItemClick('bookings_in_trip_requests')}
+                  title="طلبات أثناء الرحلة / النشاط"
+                  className={`flex items-center ${isCollapsed ? 'justify-center w-10 h-10 p-0' : 'w-full justify-between px-3 py-2'} rounded-lg transition-colors ${
+                    currentKey === 'bookings_in_trip_requests'
+                      ? 'bg-cyan-500/15 text-cyan-300 font-bold border border-cyan-500/20'
+                      : 'text-slate-400 hover:text-slate-100 hover:bg-slate-900/60'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Utensils className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                    {!isCollapsed && <span className="truncate">طلبات أثناء الرحلة / النشاط</span>}
+                  </div>
+                  {!isCollapsed && inTripRequestsCount > 0 && (
+                    <span className="text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1.5 py-0.2 rounded font-mono font-bold">
+                      {inTripRequestsCount}
+                    </span>
+                  )}
+                </button>
+                )}
               </div>
             )}
           </div>
+          )}
 
           {/* 6. الأداء والاعتماد */}
-          <button
-            onClick={() => handleItemClick('performance_approvals')}
-            title="الأداء والاعتماد"
-            className={`w-full flex items-center ${isCollapsed ? 'justify-center px-0' : 'justify-between px-3'} py-2.5 rounded-xl transition-all ${
-              currentKey === 'performance_approvals'
-                ? 'bg-cyan-600/20 text-cyan-300 font-bold border border-cyan-500/30 shadow-sm'
-                : 'text-slate-300 hover:text-white hover:bg-slate-900'
-            }`}
-          >
-            <div className="flex items-center gap-2.5">
-              <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />
-              {!isCollapsed && <span>الأداء والاعتماد</span>}
-            </div>
-            {!isCollapsed && pendingReviewCount > 0 && (
-              <span className="text-[10px] bg-amber-500/20 text-amber-300 px-1.5 py-0.2 rounded font-mono font-bold">
-                {pendingReviewCount} مراجعة
-              </span>
-            )}
-          </button>
-
-          {/* 6. التقارير */}
-          <button
-            onClick={() => handleItemClick('reports')}
-            title="التقارير المالية والتشغيلية"
-            className={`w-full flex items-center ${isCollapsed ? 'justify-center px-0' : 'justify-between px-3'} py-2.5 rounded-xl transition-all ${
-              currentKey === 'reports'
-                ? 'bg-cyan-600/20 text-cyan-300 font-bold border border-cyan-500/30 shadow-sm'
-                : 'text-slate-300 hover:text-white hover:bg-slate-900'
-            }`}
-          >
-            <div className="flex items-center gap-2.5">
-              <BarChart3 className="w-4 h-4 text-cyan-400 shrink-0" />
-              {!isCollapsed && <span>التقارير المالية والتشغيلية</span>}
-            </div>
-            {!isCollapsed && <span className="text-[10px] text-slate-500 font-mono">EUR / EGP</span>}
-          </button>
-
-          {/* 7. إدارة السجلات بالمنصة (المراقبة الشاملة للتعديلات والإضافات والحذف) */}
-          <div className="pt-2 mt-2 border-t border-slate-800/70">
+          {navVisible('performance_approvals') && (
             <button
-              onClick={() => handleItemClick('platform_audit_logs')}
-              title="إدارة السجلات بالمنصة"
+              onClick={() => handleItemClick('performance_approvals')}
+              title="الأداء والاعتماد"
               className={`w-full flex items-center ${isCollapsed ? 'justify-center px-0' : 'justify-between px-3'} py-2.5 rounded-xl transition-all ${
-                currentKey === 'platform_audit_logs'
+                currentKey === 'performance_approvals'
                   ? 'bg-cyan-600/20 text-cyan-300 font-bold border border-cyan-500/30 shadow-sm'
                   : 'text-slate-300 hover:text-white hover:bg-slate-900'
               }`}
             >
               <div className="flex items-center gap-2.5">
-                <ShieldAlert className="w-4 h-4 text-rose-400 shrink-0" />
-                {!isCollapsed && <span>إدارة السجلات بالمنصة</span>}
+                <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />
+                {!isCollapsed && <span>الأداء والاعتماد</span>}
               </div>
-              {!isCollapsed && (
-                <span className="text-[10px] bg-slate-800 text-cyan-300 px-1.5 py-0.2 rounded font-mono font-bold">
-                  {auditLogsCount}
+              {!isCollapsed && pendingReviewCount > 0 && (
+                <span className="text-[10px] bg-amber-500/20 text-amber-300 px-1.5 py-0.2 rounded font-mono font-bold">
+                  {pendingReviewCount} مراجعة
                 </span>
               )}
             </button>
-          </div>
+          )}
+
+          {/* 6. التقارير */}
+          {navVisible('reports') && (
+            <button
+              onClick={() => handleItemClick('reports')}
+              title="التقارير المالية والتشغيلية"
+              className={`w-full flex items-center ${isCollapsed ? 'justify-center px-0' : 'justify-between px-3'} py-2.5 rounded-xl transition-all ${
+                currentKey === 'reports'
+                  ? 'bg-cyan-600/20 text-cyan-300 font-bold border border-cyan-500/30 shadow-sm'
+                  : 'text-slate-300 hover:text-white hover:bg-slate-900'
+              }`}
+            >
+              <div className="flex items-center gap-2.5">
+                <BarChart3 className="w-4 h-4 text-cyan-400 shrink-0" />
+                {!isCollapsed && <span>التقارير المالية والتشغيلية</span>}
+              </div>
+              {!isCollapsed && <span className="text-[10px] text-slate-500 font-mono">EUR / EGP</span>}
+            </button>
+          )}
+
+          {/* 7. إدارة المستخدمين والسجلات والمظهر */}
+          {(navVisible('user_management') || navVisible('platform_audit_logs') || navVisible('owner_theme_studio')) && (
+            <div className="pt-2 mt-2 border-t border-slate-800/70 space-y-1.5">
+              {navVisible('user_management') && (
+                <button
+                  onClick={() => handleItemClick('user_management')}
+                  title="إدارة المستخدمين والصلاحيات"
+                  className={`w-full flex items-center ${isCollapsed ? 'justify-center px-0' : 'justify-between px-3'} py-2.5 rounded-xl transition-all ${
+                    currentKey === 'user_management'
+                      ? 'bg-cyan-600/20 text-cyan-300 font-bold border border-cyan-500/30 shadow-sm'
+                      : 'text-slate-300 hover:text-white hover:bg-slate-900'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <UserCog className="w-4 h-4 text-cyan-400 shrink-0" />
+                    {!isCollapsed && <span>إدارة المستخدمين</span>}
+                  </div>
+                  {!isCollapsed && managedUsersCount > 0 && (
+                    <span className="text-[10px] bg-slate-800 text-cyan-300 px-1.5 py-0.2 rounded font-mono font-bold">
+                      {managedUsersCount}
+                    </span>
+                  )}
+                </button>
+              )}
+
+              {navVisible('platform_audit_logs') && (
+                <button
+                  onClick={() => handleItemClick('platform_audit_logs')}
+                  title="إدارة السجلات بالمنصة"
+                  className={`w-full flex items-center ${isCollapsed ? 'justify-center px-0' : 'justify-between px-3'} py-2.5 rounded-xl transition-all ${
+                    currentKey === 'platform_audit_logs'
+                      ? 'bg-cyan-600/20 text-cyan-300 font-bold border border-cyan-500/30 shadow-sm'
+                      : 'text-slate-300 hover:text-white hover:bg-slate-900'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <ShieldAlert className="w-4 h-4 text-rose-400 shrink-0" />
+                    {!isCollapsed && <span>إدارة السجلات بالمنصة</span>}
+                  </div>
+                  {!isCollapsed && (
+                    <span className="text-[10px] bg-slate-800 text-cyan-300 px-1.5 py-0.2 rounded font-mono font-bold">
+                      {auditLogsCount}
+                    </span>
+                  )}
+                </button>
+              )}
+
+              {/* 8. تخصيص القوالب والألوان والخطوط */}
+              {navVisible('owner_theme_studio') && (
+                <button
+                  onClick={() => handleItemClick('owner_theme_studio')}
+                  title="القوالب والألوان والخطوط"
+                  className={`w-full flex items-center ${isCollapsed ? 'justify-center px-0' : 'justify-between px-3'} py-2.5 rounded-xl transition-all ${
+                    currentKey === 'owner_theme_studio'
+                      ? 'bg-cyan-600/20 text-cyan-300 font-bold border border-cyan-500/30 shadow-sm'
+                      : 'text-slate-300 hover:text-white hover:bg-slate-900'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5">
+                    <Palette className="w-4 h-4 text-cyan-400 shrink-0" />
+                    {!isCollapsed && <span>القوالب والألوان والخطوط</span>}
+                  </div>
+                  {!isCollapsed && <span className="text-[10px] text-slate-500 font-mono">تصميمي</span>}
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Footer Account Profile */}

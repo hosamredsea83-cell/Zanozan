@@ -2,6 +2,10 @@ import React, { useState, useMemo } from 'react';
 import { Activity } from '../../types/activity';
 import { EquipmentItem, EquipmentStatus, EquipmentTypeDefinition } from '../../types/equipment';
 import { Wrench, Search, Check, Eye, EyeOff, PlusCircle, Link2, CheckCircle2 } from 'lucide-react';
+import {
+  ACTIVITY_TERMINOLOGY,
+  type EntityTerminologyConfig
+} from '../reference/creation/entityCreationTerminology';
 
 interface ActivityEquipmentSelectorProps {
   formData: Activity;
@@ -11,6 +15,11 @@ interface ActivityEquipmentSelectorProps {
   allActivities?: Activity[];
   onNavigateToEquipment?: () => void;
   notifyDbSuccess?: (msg: string) => void;
+  hasCategorySelected?: boolean;
+  compatibleEquipmentIds?: string[];
+  compatibleEquipmentUnitKindNames?: string[];
+  selectedCategoryName?: string;
+  terms?: EntityTerminologyConfig;
 }
 
 const STATUS_LABELS: Record<EquipmentStatus, { label: string; color: string }> = {
@@ -27,7 +36,12 @@ export const ActivityEquipmentSelector: React.FC<ActivityEquipmentSelectorProps>
   equipmentTypes,
   allActivities = [],
   onNavigateToEquipment,
-  notifyDbSuccess
+  notifyDbSuccess,
+  hasCategorySelected = true,
+  compatibleEquipmentIds,
+  compatibleEquipmentUnitKindNames = [],
+  selectedCategoryName,
+  terms = ACTIVITY_TERMINOLOGY
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
@@ -36,16 +50,28 @@ export const ActivityEquipmentSelector: React.FC<ActivityEquipmentSelectorProps>
   const showToClient = formData.showEquipmentToClient ?? true;
 
   const ownerEquipments = useMemo(() => {
+    if (!hasCategorySelected) return [];
     const targetOwnerId = formData.owner?.id;
-    const filteredByOwner = targetOwnerId
-      ? equipments.filter((eq) => eq.ownerId === targetOwnerId)
-      : equipments;
-    // Also ensure any already-linked equipment stays visible even if ownership changed
-    const alreadyLinkedOther = equipments.filter(
-      (eq) => selectedIds.includes(eq.id) && eq.ownerId !== targetOwnerId
+    const compatSet = compatibleEquipmentIds ? new Set(compatibleEquipmentIds) : null;
+
+    const filteredByOwner = equipments.filter((eq) => {
+      const ownerMatches = targetOwnerId ? eq.ownerId === targetOwnerId : true;
+      const isGeneralAvailable = Boolean(eq.allowGeneralActivityLinking);
+      const compatMatches = compatSet ? compatSet.has(eq.id) : true;
+      return (ownerMatches || isGeneralAvailable) && compatMatches;
+    });
+
+    // Ensure already-linked equipment on an existing activity remains visible
+    const alreadyLinked = equipments.filter(
+      (eq) => selectedIds.includes(eq.id) && !filteredByOwner.some((f) => f.id === eq.id)
     );
-    return [...filteredByOwner, ...alreadyLinkedOther];
-  }, [equipments, formData.owner?.id, selectedIds]);
+    return [...filteredByOwner, ...alreadyLinked];
+  }, [equipments, formData.owner?.id, selectedIds, hasCategorySelected, compatibleEquipmentIds]);
+
+  const availableTypeOptions = useMemo(() => {
+    const presentTypeIds = new Set(ownerEquipments.map((eq) => eq.typeId));
+    return equipmentTypes.filter((t) => presentTypeIds.has(t.id));
+  }, [ownerEquipments, equipmentTypes]);
 
   const filteredList = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
@@ -69,11 +95,11 @@ export const ActivityEquipmentSelector: React.FC<ActivityEquipmentSelectorProps>
       ...prev,
       equipmentIds: nextIds
     }));
-    if (notifyDbSuccess) {
+      if (notifyDbSuccess) {
       notifyDbSuccess(
         exists
-          ? `تم فك ارتباط المعدة "${eqName}" بالنشاط (ملف المعدة الأصلي محفوظ)`
-          : `✓ تم ربط المعدة "${eqName}" (${eqId}) بالنشاط دون نسخ بياناتها`
+          ? terms.equipmentUnlinkSuccess(eqName)
+          : terms.equipmentLinkSuccess(eqName, eqId)
       );
     }
   };
@@ -87,8 +113,8 @@ export const ActivityEquipmentSelector: React.FC<ActivityEquipmentSelectorProps>
     if (notifyDbSuccess) {
       notifyDbSuccess(
         nextVal
-          ? '✓ تم تفعيل عرض المعدات ومواصفاتها العامة للعميل في هذا النشاط'
-          : 'تم إخفاء تفاصيل المعدات عن واجهة العميل لهذا النشاط'
+          ? terms.equipmentShowToClientSuccess
+          : terms.equipmentHideFromClientSuccess
       );
     }
   };
@@ -98,16 +124,26 @@ export const ActivityEquipmentSelector: React.FC<ActivityEquipmentSelectorProps>
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-800 pb-3">
         <div>
-          <h3 className="text-base font-bold text-white flex items-center gap-2">
+          <h3 className="text-base font-bold text-white flex flex-wrap items-center gap-2">
             <Wrench className="w-4 h-4 text-cyan-400" />
-            <span>المعدات المستخدمة في النشاط</span>
+            <span>{terms.equipmentSectionTitle}</span>
             <span className="text-[11px] font-mono text-cyan-300 bg-cyan-950/60 border border-cyan-800/40 px-2 py-0.5 rounded">
               {selectedIds.length} مرتبطة
             </span>
+            {hasCategorySelected && selectedCategoryName && (
+              <span className="text-[10px] font-semibold text-emerald-300 bg-emerald-950/50 border border-emerald-500/40 px-2 py-0.5 rounded">
+                متوافقة مع: {selectedCategoryName}
+              </span>
+            )}
           </h3>
           <p className="text-xs text-slate-400 mt-0.5">
-            اختر معدة أو أكثر من ملفات معداتك المستقلة. يتم الربط عبر المعرّف المرجعي فقط دون نسخ بيانات المعدة.
+            تظهر فقط المعدات المتوافقة مع التصنيف المختار من المرجع الموحد. يتم الربط عبر المعرّف المرجعي فقط.
           </p>
+          {hasCategorySelected && compatibleEquipmentUnitKindNames.length > 0 && (
+            <p className="text-[11px] text-cyan-300/90 mt-1">
+              أنواع المعدات المعتمدة للفئة: {compatibleEquipmentUnitKindNames.join(' · ')}
+            </p>
+          )}
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
@@ -137,50 +173,61 @@ export const ActivityEquipmentSelector: React.FC<ActivityEquipmentSelectorProps>
         </div>
       </div>
 
-      {/* Filter & Search Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
-        <div className="sm:col-span-2 relative">
-          <Search className="w-3.5 h-3.5 absolute right-3 top-1/2 -translate-y-1/2 text-slate-500" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="ابحث في معداتك المسجلة (مركب نيلي، يخت، حصان، كاميرا...)"
-            className="w-full bg-slate-950 border border-slate-800 rounded-lg pr-8 pl-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
-          />
-        </div>
-
-        <select
-          value={typeFilter}
-          onChange={(e) => setTypeFilter(e.target.value)}
-          className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-cyan-500"
-        >
-          <option value="all">كل أنواع المعدات ({ownerEquipments.length})</option>
-          {equipmentTypes.map((t) => (
-            <option key={t.id} value={t.id}>
-              {t.name}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      {/* Selectable Equipment List */}
-      {filteredList.length === 0 ? (
-        <div className="bg-slate-950 border border-slate-800 rounded-xl p-6 text-center space-y-2 text-xs">
-          <p className="text-slate-400">
-            لا توجد معدات مسجلة في ملف المالك الحالي مطابقة للبحث.
+      {!hasCategorySelected ? (
+        <div className="bg-slate-950/70 border border-dashed border-slate-800 rounded-xl p-5 text-center space-y-1.5 text-xs">
+          <p className="font-bold text-slate-200">
+            المعدات المتوافقة لا تظهر إلا بعد اختيار الفئة
           </p>
-          {onNavigateToEquipment && (
-            <button
-              type="button"
-              onClick={onNavigateToEquipment}
-              className="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg font-bold"
-            >
-              + الانتقال لتسجيل معدة في إدارة المعدات
-            </button>
-          )}
+          <p className="text-[11px] text-slate-400">
+            يرجى اختيار التصنيف أولاً من قسم «Category / التصنيف متعدد المستويات» لتظهر لك المعدات المتوافقة معه من المرجع الموحد.
+          </p>
         </div>
       ) : (
+        <>
+          {/* Filter & Search Row */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
+            <div className="sm:col-span-2 relative">
+              <Search className="w-3.5 h-3.5 absolute right-3 top-1/2 -translate-y-1/2 text-slate-500" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="ابحث في المعدات المتوافقة مع الفئة..."
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg pr-8 pl-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500"
+              />
+            </div>
+
+            <select
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+              className="bg-slate-950 border border-slate-800 rounded-lg px-3 py-2 text-slate-200 focus:outline-none focus:border-cyan-500"
+            >
+              <option value="all">كل الأنواع المتوافقة ({ownerEquipments.length})</option>
+              {availableTypeOptions.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Selectable Equipment List */}
+          {filteredList.length === 0 ? (
+            <div className="bg-slate-950 border border-slate-800 rounded-xl p-6 text-center space-y-2 text-xs">
+              <p className="text-slate-400">
+                لا توجد معدات مسجلة في حساب المالك الحالي متوافقة مع هذه الفئة أو مطابقة للبحث.
+              </p>
+              {onNavigateToEquipment && (
+                <button
+                  type="button"
+                  onClick={onNavigateToEquipment}
+                  className="px-3 py-1.5 bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg font-bold"
+                >
+                  + الانتقال لتسجيل معدة في إدارة المعدات
+                </button>
+              )}
+            </div>
+          ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           {filteredList.map((eq) => {
             const isSelected = selectedIds.includes(eq.id);
@@ -238,7 +285,7 @@ export const ActivityEquipmentSelector: React.FC<ActivityEquipmentSelectorProps>
                     <Link2 className="w-3 h-3 text-slate-500 shrink-0" />
                     <span>
                       {otherActivitiesCount > 0
-                        ? `مستخدمة أيضاً في ${otherActivitiesCount} أنشطة أخرى`
+                        ? terms.equipmentOtherUsageText(otherActivitiesCount)
                         : 'متاحة للربط المباشر بهذه الخدمة'}
                     </span>
                   </div>
@@ -249,19 +296,21 @@ export const ActivityEquipmentSelector: React.FC<ActivityEquipmentSelectorProps>
         </div>
       )}
 
-      {/* Selected Equipment Summary Notice */}
-      {selectedIds.length > 0 && (
-        <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-3 flex flex-wrap items-center justify-between gap-2 text-[11px]">
-          <div className="flex items-center gap-2 text-emerald-300 font-semibold">
-            <CheckCircle2 className="w-4 h-4 shrink-0" />
-            <span>
-              المعرفات المرجعية المرتبطة: {selectedIds.join(' ، ')}
-            </span>
-          </div>
-          <span className="text-slate-400">
-            يُقرأ ملف كل معدة ومواصفاتها من سجل المعدات الأصلي تلقائياً.
-          </span>
-        </div>
+          {/* Selected Equipment Summary Notice */}
+          {selectedIds.length > 0 && (
+            <div className="bg-slate-950/80 border border-slate-800 rounded-xl p-3 flex flex-wrap items-center justify-between gap-2 text-[11px]">
+              <div className="flex items-center gap-2 text-emerald-300 font-semibold">
+                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                <span>
+                  المعرفات المرجعية المرتبطة: {selectedIds.join(' ، ')}
+                </span>
+              </div>
+              <span className="text-slate-400">
+                يُقرأ ملف كل معدة ومواصفاتها من سجل المعدات الأصلي تلقائياً.
+              </span>
+            </div>
+          )}
+        </>
       )}
     </div>
   );

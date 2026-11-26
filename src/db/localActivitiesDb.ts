@@ -99,6 +99,23 @@ async function deleteActivityFromLocalDb(activityId: string): Promise<void> {
 }
 
 export function activityBelongsToOwner(act: Activity, user: AppUser): boolean {
+  if (act.supplierCustody?.isExternalSupplier) {
+    if (
+      act.supplierCustody.supplierStatus === 'pending_signup' ||
+      act.supplierCustody.supplierStatus === 'claim_requested'
+    ) {
+      return (
+        act.supplierCustody.addedByUserId === user.id ||
+        act.createdById === user.id
+      );
+    }
+    if (act.supplierCustody.supplierStatus === 'subscribed') {
+      return (
+        act.supplierCustody.claimedUserId === user.id ||
+        act.owner?.id === user.id
+      );
+    }
+  }
   if (!act.owner) return false;
   return (
     act.owner.id === user.id ||
